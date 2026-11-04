@@ -1,0 +1,9 @@
+rules_version = '2';
+// כל בעל עסק רואה וכותב רק את הנתונים שלו: businesses/{המזהה שלו}/...
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /businesses/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
