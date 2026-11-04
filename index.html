@@ -161,7 +161,8 @@
       <div class="msg" id="auMsg"></div>
       <button class="ok" id="auSubmit" type="submit" style="width:100%">כניסה</button>
     </form>
-    <div style="text-align:center;margin-top:10px"><button class="secondary small" id="auForgot" type="button">שכחתי סיסמה</button></div>
+    <div style="text-align:center;margin-top:10px"><button class="secondary small" id="auForgot" type="button">🔑 שכחתי סיסמה</button>
+      <div class="muted" style="font-size:13px;margin-top:4px">מקלידים את המייל למעלה ולוחצים – יישלח קישור לבחירת סיסמה חדשה</div></div>
     <p class="muted" style="font-size:13px;text-align:center;margin-bottom:0">הנתונים של כל עסק נשמרים בענן מאובטח (Google, ישראל) ונגישים רק לבעל העסק.</p>
   </div>
 </div>
@@ -484,6 +485,27 @@
   <div class="keypad" id="mgrKeypad"></div>
   <div class="msg err" id="mgrMsg"></div>
   <button class="secondary" id="mgrCancel" style="width:100%">ביטול</button>
+  <div style="text-align:center;margin-top:10px"><button class="secondary small" id="mgrForgot" type="button">שכחתי את קוד המנהל</button></div>
+</dialog>
+
+<!-- Reset the manager code with the account password -->
+<dialog id="pinResetDlg" style="width:min(420px,94vw)">
+  <h3 style="margin-top:0">🔑 קוד מנהל חדש</h3>
+  <p class="muted" style="margin-top:0;font-size:15px">כדי לקבוע קוד מנהל חדש, הקלד את <b>סיסמת החשבון</b> (הסיסמה שאיתה נכנסים לתוכנה). צריך חיבור לאינטרנט.</p>
+  <form id="pinResetForm" onsubmit="return false">
+    <label for="prEmail">מייל החשבון</label><input id="prEmail" type="email" dir="ltr" readonly>
+    <label for="prPass">סיסמת החשבון</label><input id="prPass" type="password" dir="ltr" autocomplete="current-password">
+    <div class="row">
+      <div><label for="prPin">קוד מנהל חדש (4 ספרות)</label><input id="prPin" type="password" inputmode="numeric" maxlength="4" dir="ltr"></div>
+      <div><label for="prPin2">הקלדה חוזרת</label><input id="prPin2" type="password" inputmode="numeric" maxlength="4" dir="ltr"></div>
+    </div>
+    <div class="msg" id="prMsg"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="ok" id="prSave" type="submit">שמירת הקוד החדש</button>
+      <button class="secondary" id="prCancel" type="button">ביטול</button>
+    </div>
+  </form>
+  <p class="muted" style="font-size:14px;margin-bottom:0">שכחת גם את סיסמת החשבון? התנתק ולחץ "שכחתי סיסמה" במסך הכניסה, או: <button class="secondary small" id="prSendReset" type="button">שליחת קישור לאיפוס סיסמה למייל</button></p>
 </dialog>
 
 <!-- Employee profile -->
@@ -1209,6 +1231,39 @@
     catch (e) { alert(authErr(e)); }
   };
   $('btnHeaderSignOut').onclick = () => $('btnSignOut').click();
+
+  // --- forgot the manager code: prove it's the owner with the account password ---
+  function prMsg(t, cls) { $('prMsg').textContent = t; $('prMsg').className = 'msg ' + (cls || ''); }
+  $('mgrForgot').onclick = () => {
+    if (!cloud.user) return;
+    $('mgrDlg').close();
+    $('prEmail').value = cloud.user.email; $('prPass').value = $('prPin').value = $('prPin2').value = ''; prMsg('');
+    $('pinResetDlg').showModal(); $('prPass').focus();
+  };
+  $('prCancel').onclick = () => $('pinResetDlg').close();
+  $('prSendReset').onclick = async () => {
+    try { await cloud.A.sendPasswordResetEmail(cloud.auth, cloud.user.email); prMsg(`נשלח קישור לאיפוס סיסמה אל ${cloud.user.email}`, 'good'); }
+    catch (e) { prMsg(authErr(e), 'err'); }
+  };
+  $('pinResetForm').onsubmit = async e => {
+    e.preventDefault();
+    const pass = $('prPass').value, p1 = $('prPin').value.trim(), p2 = $('prPin2').value.trim();
+    if (!pass) return prMsg('יש להקליד את סיסמת החשבון', 'err');
+    if (!/^\d{4}$/.test(p1)) return prMsg('הקוד החדש חייב להיות 4 ספרות', 'err');
+    if (['1234', '0000', '1111'].includes(p1)) return prMsg('בחר קוד שקשה לנחש', 'err');
+    if (p1 !== p2) return prMsg('שני הקודים לא זהים', 'err');
+    if (db.employees.some(x => x.pin === p1)) return prMsg('הקוד כבר בשימוש אצל עובד', 'err');
+    $('prSave').disabled = true; prMsg('בודק את הסיסמה...');
+    try {
+      const A = cloud.A;
+      await A.reauthenticateWithCredential(cloud.user, A.EmailAuthProvider.credential(cloud.user.email, pass));
+      S().managerPin = p1; save();
+      $('pinResetDlg').close();
+      alert('קוד המנהל הוחלף בהצלחה ✓\nהקוד החדש פעיל בכל המכשירים של העסק.');
+    } catch (err) { prMsg(/invalid-credential|wrong-password|invalid-login/.test(err.code || '') ? 'סיסמת החשבון שגויה' : authErr(err), 'err'); }
+    finally { $('prSave').disabled = false; $('prPass').value = ''; }
+    return false;
+  };
   $('btnSignOut').onclick = async () => {
     if (!confirm('להתנתק מהחשבון?\n\nאחרי ההתנתקות העובדים לא יוכלו להיכנס למשמרות בטאבלט הזה עד שתתחבר שוב. הנתונים שמורים בענן ולא יימחקו.')) return;
     if (cloud.pending && !confirm('יש נתונים שעדיין לא עלו לענן (אין חיבור?). אם תתנתק עכשיו הם יאבדו. להתנתק בכל זאת?')) return;
@@ -1909,7 +1964,7 @@
   };
 
   // ---------- tablet: offline, screen on, keep data ----------
-  const APP_VERSION = '2.1';
+  const APP_VERSION = '2.2';
   $('appVersion').textContent = APP_VERSION;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); // ask the browser not to evict our data
