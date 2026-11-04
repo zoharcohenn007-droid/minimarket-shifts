@@ -346,6 +346,10 @@
       <div><label>טלפון</label><input id="suPhone" type="tel" dir="ltr"></div>
     </div>
     <label>מייל לקבלת סיכום חודשי</label><input id="suEmail" type="email" dir="ltr">
+    <div class="warnbox" style="background:#e3f2fd;border-color:#90caf9">
+      📂 כבר הגדרת את התוכנה במכשיר אחר? אפשר להעביר את כל הנתונים מקובץ גיבוי.
+      <button class="secondary small" id="wzRestore" style="margin-top:6px">שחזור מקובץ גיבוי</button>
+    </div>
   </div>
   <div id="wz2" class="hidden">
     <p style="margin-top:0">באילו ימים ושעות העסק פתוח?</p>
@@ -1328,7 +1332,7 @@
         await docsOp('readwrite', st => st.clear());
         for (const x of docs) { const blob = await (await fetch(x.data)).blob(); delete x.data; await docPut(Object.assign(x, { blob })); }
       }
-      openScreen('settings');
+      if ($('setupDlg').open) { $('setupDlg').close(); lock(); } else openScreen('settings');
       alert('הנתונים שוחזרו');
     } catch (err) { alert('קובץ גיבוי לא תקין'); }
     e.target.value = '';
@@ -1356,6 +1360,7 @@
   $('wzSuggest').onclick = () => { wz.types = suggestShifts(wz.hours); renderWz(); };
   $('wzAddType').onclick = () => { wz.types.push(newShift()); renderWz(); };
   $('wzPrev').onclick = () => { wzStep--; renderWz(); };
+  $('wzRestore').onclick = () => $('restoreFile').click();
   $('wzNext').onclick = () => {
     const err = t => { $('suMsg').textContent = t; };
     if (wzStep === 1) {
@@ -1387,7 +1392,7 @@
   };
 
   // ---------- tablet: offline, screen on, keep data ----------
-  const APP_VERSION = '1.0';
+  const APP_VERSION = '1.1';
   $('appVersion').textContent = APP_VERSION;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); // ask the browser not to evict our data
