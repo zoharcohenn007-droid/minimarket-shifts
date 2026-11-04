@@ -111,7 +111,16 @@
   .folder .ficon { font-size: 44px; line-height: 1; }
   .folder .muted { font-size: 14px; }
   .chip.me { background: #c8e6c9; border-color: #2e7d32; font-weight: bold; }
-  .status-ok { color: var(--ok); font-weight: bold; } .status-wait { color: #e65100; font-weight: bold; }
+  .status-ok { color: var(--ok); font-weight: bold; }
+  body.signed-out > header, body.signed-out > nav, body.signed-out > .layout { display: none !important; }
+  #authView { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; background: linear-gradient(160deg, #263238, #37474f); }
+  .auth-card { background: #fff; border-radius: 18px; padding: 24px; width: min(440px, 100%); box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+  .auth-card h1 { margin: 8px 0 2px; text-align: center; font-size: 26px; }
+  .auth-logo { width: 84px; height: 84px; margin: 0 auto; border-radius: 50%; background: var(--warn); border: 6px solid var(--danger); display: flex; align-items: center; justify-content: center; font: 900 28px Arial, sans-serif; }
+  #loadingView { position: fixed; inset: 0; z-index: 50; background: rgba(244,245,247,.96); display: flex; align-items: center; justify-content: center; text-align: center; font-size: 20px; padding: 16px; }
+  .spinner { width: 48px; height: 48px; border: 6px solid #cfd8dc; border-top-color: var(--primary); border-radius: 50%; margin: 0 auto 14px; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .sync { font-size: 14px; margin-inline-start: 10px; padding: 3px 8px; border-radius: 10px; background: rgba(255,255,255,.12); white-space: nowrap; } .status-wait { color: #e65100; font-weight: bold; }
   .shift-editor th, .shift-editor td { padding: 6px 4px; }
   .shift-editor input { padding: 7px 5px; }
   .shift-editor input[type=time] { width: 108px; }
@@ -134,10 +143,31 @@
   }
 </style>
 </head>
-<body>
+<body class="signed-out">
+<div id="loadingView"><div><div class="spinner"></div><p id="loadingText">טוען...</p></div></div>
+<div id="authView" class="hidden">
+  <div class="auth-card">
+    <div class="auth-logo">18+</div>
+    <h1>שעון נוכחות לעסק</h1>
+    <p class="muted" style="text-align:center;margin-top:0">משמרות, עובדים ואכיפת מכירה מגיל 18</p>
+    <div class="tabs sub" id="authTabs" style="justify-content:center">
+      <button data-auth="login" class="active">כניסה</button>
+      <button data-auth="signup">הרשמה – עסק חדש</button>
+    </div>
+    <form id="authForm" onsubmit="return false">
+      <label for="auEmail">מייל</label><input id="auEmail" type="email" dir="ltr" autocomplete="email" required>
+      <label for="auPass">סיסמה</label><input id="auPass" type="password" dir="ltr" autocomplete="current-password" required>
+      <div id="auPass2Wrap" class="hidden"><label for="auPass2">הקלדה חוזרת של הסיסמה</label><input id="auPass2" type="password" dir="ltr" autocomplete="new-password"></div>
+      <div class="msg" id="auMsg"></div>
+      <button class="ok" id="auSubmit" type="submit" style="width:100%">כניסה</button>
+    </form>
+    <div style="text-align:center;margin-top:10px"><button class="secondary small" id="auForgot" type="button">שכחתי סיסמה</button></div>
+    <p class="muted" style="font-size:13px;text-align:center;margin-bottom:0">הנתונים של כל עסק נשמרים בענן מאובטח (Google, ישראל) ונגישים רק לבעל העסק.</p>
+  </div>
+</div>
 <header>
   <h1 id="storeTitle">מיני מרקט</h1>
-  <div id="clock"></div>
+  <div><span id="clock"></span><span id="syncBadge" class="sync"></span></div>
   <button class="secondary small hidden" id="btnLock">🔒 נעילת ניהול</button>
 </header>
 <nav id="nav">
@@ -333,7 +363,15 @@
 
       <!-- Settings -->
       <div data-pane="settings" class="hidden">
-        <h3 class="section" style="border:0;padding:0;margin-top:0">פרטי העסק</h3>
+        <h3 class="section" style="border:0;padding:0;margin-top:0">חשבון</h3>
+        <p style="margin:4px 0">מחובר כ: <b id="acctEmail" dir="ltr"></b> <span id="acctVerify"></span></p>
+        <p class="muted" style="margin:4px 0" id="acctSync"></p>
+        <div class="row" style="margin-top:6px">
+          <button class="secondary" id="btnResetPass">🔑 שינוי סיסמה (שליחת קישור למייל)</button>
+          <button class="danger" id="btnSignOut">🚪 התנתקות מהחשבון</button>
+        </div>
+
+        <h3 class="section">פרטי העסק</h3>
         <div class="row">
           <div><label>שם העסק</label><input id="setStore"></div>
           <div><label>סוג העסק</label><input id="setBizType" value="מיני מרקט" readonly></div>
@@ -384,7 +422,7 @@
         <input id="setPin" inputmode="numeric" maxlength="4">
         <div class="row" style="margin-top:16px">
           <button id="btnSaveSettings">שמירת הגדרות</button>
-          <button class="secondary" id="btnBackup">הורדת גיבוי</button>
+          <button class="secondary" id="btnBackup">הורדת גיבוי לקובץ</button>
           <button class="secondary" id="btnRestore">שחזור מגיבוי</button>
           <input type="file" id="restoreFile" accept=".json" class="hidden">
         </div>
@@ -502,7 +540,8 @@
 <script>
 (() => {
   'use strict';
-  const KEY = 'minimarket_shifts_v1';
+  const LEGACY_KEY = 'minimarket_shifts_v1'; // data saved before cloud accounts existed
+  let KEY = null;                              // per account: minimarket_shifts_v1_<uid>
   const DEFAULTS = {
     storeName: 'מיני מרקט',
     managerPin: '1234',
@@ -530,17 +569,22 @@
   // ---------- storage ----------
   function load() {
     let d = null;
-    try { d = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+    try { if (KEY) d = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+    return normalize(d);
+  }
+  function normalize(d) {
     if (!d || !d.employees) d = { settings: {}, employees: [], shifts: [] };
     d.settings = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), d.settings);
-    d.schedules = d.schedules || {};
+    d.schedules = d.schedules || {}; d.docs = d.docs || []; d.deleted = d.deleted || [];
     return d;
   }
   let db = load();
-  function save() {
+  function saveLocal() {
+    if (!KEY || (typeof cloud !== 'undefined' && cloud.signingOut)) return;
     try { localStorage.setItem(KEY, JSON.stringify(db)); }
-    catch (e) { alert('שגיאה בשמירת הנתונים! מומלץ להוריד גיבוי מיד.'); }
+    catch (e) { console.warn('local save failed', e); }
   }
+  function save() { saveLocal(); schedulePush(); } // every change: tablet first, then the cloud
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const S = () => db.settings;
 
@@ -957,34 +1001,265 @@
     } catch (e) { console.warn('auto email failed', e); }
   }
 
-  // ----- documents storage (IndexedDB: photos & files are too big for localStorage) -----
+  // ======================= CLOUD: accounts, sync, documents =======================
+  const FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyDtNMMmaz20IDMgseQXZbhVocbunmF6KZw',
+    authDomain: 'minimarket-shifts.firebaseapp.com',
+    projectId: 'minimarket-shifts',
+    storageBucket: 'minimarket-shifts.firebasestorage.app',
+    messagingSenderId: '684366059825',
+    appId: '1:684366059825:web:284b376874480a531eb810'
+  };
+  const FB_BASE = './vendor/firebase-10.14.1/';
+  const cloud = { A: null, F: null, ST: null, auth: null, fs: null, storage: null, user: null, unsub: null, ready: false, online: false, pending: false, error: '' };
+  let synced = {};             // record key -> JSON the server has (as far as we know)
+  let pushTimer = null;
+
+  function showLoading(t) { $('loadingText').textContent = t; $('loadingView').classList.remove('hidden'); }
+  function hideLoading() { $('loadingView').classList.add('hidden'); }
+
+  // --- every piece of data becomes one small "record" in the cloud ---
+  function recordsOf(d) {
+    const r = { 'settings__main': d.settings };
+    d.employees.forEach(e => { r['employee__' + e.id] = e; });
+    d.shifts.forEach(x => { r['shift__' + x.id] = x; });
+    Object.entries(d.schedules).forEach(([k, w]) => { r['schedule__' + k] = w; });
+    d.docs.forEach(x => { r['doc__' + x.id] = x; });
+    d.deleted.forEach(x => { r['deleted__' + x.id] = x; });
+    return r;
+  }
+  function applyRecord(key, val) { // val === null -> deleted
+    const i = key.indexOf('__'), kind = key.slice(0, i), id = key.slice(i + 2);
+    const list = { employee: 'employees', shift: 'shifts', doc: 'docs', deleted: 'deleted' }[kind];
+    if (kind === 'settings') { if (val) db.settings = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), val); return; }
+    if (kind === 'schedule') { if (val) db.schedules[id] = val; else delete db.schedules[id]; return; }
+    if (!list) return;
+    const arr = db[list], at = arr.findIndex(x => x.id === id);
+    if (!val) { if (at >= 0) arr.splice(at, 1); }
+    else if (at >= 0) arr[at] = val; else arr.push(val);
+  }
+  const syncKey = () => KEY + '_synced';
+  function loadSynced() { try { return JSON.parse(localStorage.getItem(syncKey())) || {}; } catch (e) { return {}; } }
+  function saveSynced() { if (cloud.signingOut) return; try { localStorage.setItem(syncKey(), JSON.stringify(synced)); } catch (e) {} }
+
+  function schedulePush() { clearTimeout(pushTimer); pushTimer = setTimeout(push, 300); }
+  function push() {
+    if (!cloud.user || !cloud.ready) return; // never push before we know what the server has
+    const cur = recordsOf(db), ops = [];
+    for (const [k, v] of Object.entries(cur)) { const j = JSON.stringify(v); if (synced[k] !== j) ops.push([k, j]); }
+    for (const k of Object.keys(synced)) if (!(k in cur)) ops.push([k, null]);
+    if (!ops.length) return;
+    const { F } = cloud, col = ['businesses', cloud.user.uid, 'records'];
+    for (let i = 0; i < ops.length; i += 400) {
+      const batch = F.writeBatch(cloud.fs);
+      ops.slice(i, i + 400).forEach(([k, j]) => {
+        const at = k.indexOf('__');
+        batch.set(F.doc(cloud.fs, ...col, k), { kind: k.slice(0, at), id: k.slice(at + 2), json: j, deleted: j === null, updatedAt: F.serverTimestamp() });
+      });
+      // Works offline too: the write waits in the tablet's cache and goes up when the internet is back
+      batch.commit().then(() => { cloud.error = ''; updateSyncBadge(); })
+        .catch(err => { cloud.error = err.code || String(err); updateSyncBadge(); console.error('sync push failed', err); });
+    }
+    ops.forEach(([k, j]) => { if (j === null) delete synced[k]; else synced[k] = j; });
+    saveSynced(); cloud.pending = true; updateSyncBadge();
+  }
+
+  function onSnap(snap) {
+    let changed = false;
+    snap.docChanges().forEach(ch => {
+      if (ch.doc.metadata.hasPendingWrites) return; // our own write, not yet confirmed
+      const k = ch.doc.id, j = ch.type === 'removed' ? null : (ch.doc.data().json ?? null);
+      if (j === null) { if (k in synced || recordsOf(db)[k]) { applyRecord(k, null); delete synced[k]; changed = true; } }
+      else if (synced[k] !== j) { try { applyRecord(k, JSON.parse(j)); synced[k] = j; changed = true; } catch (e) {} }
+    });
+    cloud.online = !snap.metadata.fromCache;
+    cloud.pending = snap.metadata.hasPendingWrites;
+    if (changed) { saveLocal(); saveSynced(); refreshAfterSync(); }
+    updateSyncBadge();
+    const firstReady = !cloud.ready && (cloud.online || cloud.hadLocal);
+    if (firstReady) { cloud.ready = true; hideLoading(); afterFirstSync(); schedulePush(); }
+  }
+  function refreshAfterSync() {
+    renderHome();
+    if (!$('viewManager').classList.contains('hidden')) { renderAll(); if (!$('empDlg').open) {} }
+    if (!$('viewMy').classList.contains('hidden') && myEmp) { myEmp = empById(myEmp.id) || myEmp; renderMy(); }
+  }
+  function updateSyncBadge() {
+    const b = $('syncBadge'); if (!b) return;
+    let t, title;
+    if (!cloud.user) { t = ''; title = ''; }
+    else if (cloud.error) { t = '⚠️ שגיאת סנכרון'; title = cloud.error; }
+    else if (!cloud.online || !navigator.onLine) { t = '📴 אין חיבור – נשמר בטאבלט'; title = 'הנתונים יעלו לענן כשהחיבור יחזור'; }
+    else if (cloud.pending) { t = '☁️ שומר...'; title = ''; }
+    else { t = '☁️ מסונכרן'; title = 'כל הנתונים שמורים בענן'; }
+    b.textContent = t; b.title = title;
+    if ($('acctSync')) $('acctSync').textContent = t ? `מצב הסנכרון: ${t}${title ? ' – ' + title : ''}` : '';
+  }
+  window.addEventListener('online', updateSyncBadge); window.addEventListener('offline', updateSyncBadge);
+
+  // --- what happens after the first sync: data from the cloud, old tablet data, or a new business ---
+  function afterFirstSync() {
+    renderHome();
+    if (S().setupDone) return;
+    let legacy = null;
+    try { legacy = JSON.parse(localStorage.getItem(LEGACY_KEY)); } catch (e) {}
+    if (legacy && legacy.settings && legacy.settings.setupDone &&
+        confirm(`נמצאו בטאבלט נתונים מהגרסה הקודמת (${(legacy.employees || []).length} עובדים, ${(legacy.shifts || []).length} משמרות).\n\nלהעביר אותם לחשבון שלך בענן?`)) {
+      db = normalize(legacy); save(); renderHome();
+      try { localStorage.setItem(LEGACY_KEY + '_moved_to_' + cloud.user.uid, localStorage.getItem(LEGACY_KEY)); localStorage.removeItem(LEGACY_KEY); } catch (e) {}
+      migrateLegacyDocs();
+      alert('הנתונים הועברו לחשבון שלך בענן ✓');
+      return;
+    }
+    openWizard();
+  }
+  async function migrateLegacyDocs() { // documents from the old on-tablet storage -> cloud
+    let old = [];
+    try { old = await legacyDocAll(); } catch (e) { return; }
+    let n = 0;
+    for (const x of old) {
+      if (db.docs.some(d => d.id === x.id)) continue;
+      try { await uploadDoc({ id: x.id, empId: x.empId, type: x.type, name: x.name, mime: x.mime, addedAt: x.addedAt }, x.blob); n++; }
+      catch (e) { console.warn('doc migrate failed', e); }
+    }
+    if (n) { renderAll(); alert(`${n} מסמכים הועברו לענן ✓`); }
+  }
+
+  // --- documents: files in Cloud Storage, details as records ---
   const DOC_TYPES = ['צילום תעודת זהות', 'חוזה עבודה', 'טופס 101', 'ספח / אישור תושבות', 'פרטי חשבון בנק', 'אישור הורים (עובד נוער)', 'אחר'];
-  let idbP = null;
-  function idb() {
-    if (!idbP) idbP = new Promise((res, rej) => {
+  const docPath = id => `businesses/${cloud.user.uid}/docs/${id}`;
+  const docUrlCache = {};
+  async function uploadDoc(meta, blob) {
+    const { ST } = cloud;
+    await ST.uploadBytes(ST.ref(cloud.storage, docPath(meta.id)), blob, { contentType: meta.mime });
+    db.docs.push(Object.assign({}, meta, { size: blob.size })); save();
+  }
+  async function removeDoc(d) {
+    try { await cloud.ST.deleteObject(cloud.ST.ref(cloud.storage, docPath(d.id))); }
+    catch (e) { if (e.code !== 'storage/object-not-found') throw e; }
+    db.docs = db.docs.filter(x => x.id !== d.id); delete docUrlCache[d.id]; save();
+  }
+  async function docUrl(d) {
+    if (!docUrlCache[d.id]) docUrlCache[d.id] = await cloud.ST.getDownloadURL(cloud.ST.ref(cloud.storage, docPath(d.id)));
+    return docUrlCache[d.id];
+  }
+  const docsOf = empId => db.docs.filter(x => x.empId === empId).sort((a, b) => a.addedAt.localeCompare(b.addedAt));
+  let docCounts = {};
+  function refreshDocCounts() { const c = {}; db.docs.forEach(x => { c[x.empId] = (c[x.empId] || 0) + 1; }); docCounts = c; renderEmps(); }
+  // old on-tablet document store (before the cloud), only read for moving files to the cloud
+  function legacyDocAll() {
+    return new Promise((res, rej) => {
       const r = indexedDB.open('minimarket_docs', 1);
       r.onupgradeneeded = () => r.result.createObjectStore('docs', { keyPath: 'id' });
-      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
-    });
-    return idbP;
-  }
-  async function docsOp(mode, fn) {
-    const d = await idb();
-    return new Promise((res, rej) => {
-      const tx = d.transaction('docs', mode), req = fn(tx.objectStore('docs'));
-      tx.oncomplete = () => res(req && req.result); tx.onerror = () => rej(tx.error);
+      r.onerror = () => rej(r.error);
+      r.onsuccess = () => { const q = r.result.transaction('docs', 'readonly').objectStore('docs').getAll(); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); };
     });
   }
-  const docPut = doc => docsOp('readwrite', st => st.put(doc));
-  const docDel = id => docsOp('readwrite', st => st.delete(id));
-  const docAll = () => docsOp('readonly', st => st.getAll());
-  const docsOf = async empId => (await docAll()).filter(x => x.empId === empId).sort((a, b) => a.addedAt.localeCompare(b.addedAt));
-  let docCounts = {};
-  async function refreshDocCounts() {
-    const c = {};
-    try { (await docAll()).forEach(x => { c[x.empId] = (c[x.empId] || 0) + 1; }); } catch (e) {}
-    docCounts = c; renderEmps();
+
+  // --- sign in / sign up ---
+  let authMode = 'login';
+  const AUTH_ERR = {
+    'auth/invalid-credential': 'המייל או הסיסמה שגויים', 'auth/wrong-password': 'המייל או הסיסמה שגויים', 'auth/user-not-found': 'המייל או הסיסמה שגויים',
+    'auth/invalid-login-credentials': 'המייל או הסיסמה שגויים',
+    'auth/email-already-in-use': 'כבר קיים חשבון עם המייל הזה – עברו ללשונית "כניסה"',
+    'auth/weak-password': 'הסיסמה חלשה מדי – לפחות 8 תווים', 'auth/invalid-email': 'כתובת המייל לא תקינה',
+    'auth/missing-password': 'יש להזין סיסמה', 'auth/network-request-failed': 'אין חיבור לאינטרנט',
+    'auth/too-many-requests': 'יותר מדי ניסיונות. נסו שוב בעוד כמה דקות', 'auth/user-disabled': 'החשבון חסום'
+  };
+  const authErr = e => AUTH_ERR[e.code] || ('שגיאה: ' + (e.code || e.message));
+  function auMsg(t, cls) { $('auMsg').textContent = t; $('auMsg').className = 'msg ' + (cls || ''); }
+  $('authTabs').onclick = e => {
+    const m = e.target.dataset.auth; if (!m) return;
+    authMode = m;
+    [...$('authTabs').children].forEach(b => b.classList.toggle('active', b.dataset.auth === m));
+    $('auPass2Wrap').classList.toggle('hidden', m !== 'signup');
+    $('auSubmit').textContent = m === 'signup' ? 'יצירת חשבון לעסק' : 'כניסה';
+    $('auPass').autocomplete = m === 'signup' ? 'new-password' : 'current-password';
+    auMsg('');
+  };
+  $('authForm').onsubmit = e => { e.preventDefault(); doAuth(); return false; };
+  async function doAuth() {
+    const email = $('auEmail').value.trim(), pass = $('auPass').value, A = cloud.A;
+    if (!A) return auMsg('התוכנה עדיין נטענת...', 'err');
+    if (!email || !pass) return auMsg('יש להזין מייל וסיסמה', 'err');
+    $('auSubmit').disabled = true;
+    try {
+      if (authMode === 'signup') {
+        if (pass.length < 8) throw { code: 'auth/weak-password' };
+        if (pass !== $('auPass2').value) throw { message: 'שתי הסיסמאות לא זהות', code: 'local/mismatch' };
+        auMsg('יוצר חשבון...');
+        const cred = await A.createUserWithEmailAndPassword(cloud.auth, email, pass);
+        A.sendEmailVerification(cred.user).catch(() => {});
+      } else {
+        auMsg('מתחבר...');
+        await A.signInWithEmailAndPassword(cloud.auth, email, pass);
+      }
+      $('auPass').value = $('auPass2').value = ''; auMsg('');
+    } catch (e) { auMsg(e.code === 'local/mismatch' ? e.message : authErr(e), 'err'); }
+    finally { $('auSubmit').disabled = false; }
   }
+  $('auForgot').onclick = async () => {
+    const email = $('auEmail').value.trim();
+    if (!email) return auMsg('הקלידו את המייל בשדה למעלה ואז לחצו שוב "שכחתי סיסמה"', 'err');
+    try { await cloud.A.sendPasswordResetEmail(cloud.auth, email); auMsg('אם קיים חשבון עם המייל הזה, נשלח אליו קישור לאיפוס סיסמה ✓', 'good'); }
+    catch (e) { auMsg(authErr(e), 'err'); }
+  };
+  $('btnResetPass').onclick = async () => {
+    try { await cloud.A.sendPasswordResetEmail(cloud.auth, cloud.user.email); alert(`נשלח קישור לשינוי סיסמה אל ${cloud.user.email}`); }
+    catch (e) { alert(authErr(e)); }
+  };
+  $('btnSignOut').onclick = async () => {
+    if (!confirm('להתנתק מהחשבון?\n\nאחרי ההתנתקות העובדים לא יוכלו להיכנס למשמרות בטאבלט הזה עד שתתחבר שוב. הנתונים שמורים בענן ולא יימחקו.')) return;
+    if (cloud.pending && !confirm('יש נתונים שעדיין לא עלו לענן (אין חיבור?). אם תתנתק עכשיו הם יאבדו. להתנתק בכל זאת?')) return;
+    showLoading('מתנתק...');
+    const keys = [KEY, syncKey()];            // remember before sign-out clears the session
+    cloud.signingOut = true; clearTimeout(pushTimer);
+    try { if (cloud.unsub) cloud.unsub(); } catch (e) {}
+    try { await cloud.F.terminate(cloud.fs); await cloud.F.clearIndexedDbPersistence(cloud.fs); } catch (e) {}
+    try { await cloud.A.signOut(cloud.auth); } catch (e) {}
+    try { keys.forEach(k => localStorage.removeItem(k)); } catch (e) {} // nothing of this business stays on the device
+    location.reload();
+  };
+
+  function showAuth() {
+    if (cloud.signingOut) return; // the page reloads in a moment
+    cloud.user = null; KEY = null; db = load();
+    document.body.classList.add('signed-out');
+    $('authView').classList.remove('hidden'); hideLoading();
+  }
+  function startSession(user) {
+    cloud.user = user; KEY = 'minimarket_shifts_v1_' + user.uid;
+    cloud.hadLocal = !!localStorage.getItem(KEY);
+    db = load(); synced = loadSynced(); cloud.ready = false;
+    document.body.classList.remove('signed-out'); $('authView').classList.add('hidden');
+    lock(); renderHome(); tick(); updateSyncBadge();
+    if (!cloud.hadLocal) {
+      showLoading('טוען את נתוני העסק מהענן...');
+      setTimeout(() => { if (!cloud.ready) showLoading('ממתין לחיבור לאינטרנט... בכניסה הראשונה בטאבלט צריך אינטרנט.'); }, 10000);
+    }
+    const F = cloud.F;
+    cloud.unsub = F.onSnapshot(F.collection(cloud.fs, 'businesses', user.uid, 'records'), { includeMetadataChanges: true }, onSnap,
+      err => { cloud.error = err.code || String(err); updateSyncBadge(); console.error('sync listen failed', err);
+               if (!cloud.ready) showLoading('שגיאה בטעינת הנתונים מהענן: ' + cloud.error); });
+  }
+
+  async function boot() {
+    showLoading('טוען...');
+    try {
+      const [App, A, F, ST] = await Promise.all(['app', 'auth', 'firestore', 'storage'].map(n => import(FB_BASE + 'firebase-' + n + '.js')));
+      Object.assign(cloud, { A, F, ST });
+      const app = App.initializeApp(FIREBASE_CONFIG);
+      cloud.auth = A.getAuth(app); cloud.auth.languageCode = 'he';
+      try { cloud.fs = F.initializeFirestore(app, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) }); }
+      catch (e) { cloud.fs = F.initializeFirestore(app, {}); } // e.g. private browsing: no offline cache
+      cloud.storage = ST.getStorage(app);
+      A.onAuthStateChanged(cloud.auth, u => { if (u) { if (!cloud.user || cloud.user.uid !== u.uid) startSession(u); } else showAuth(); });
+    } catch (e) {
+      console.error(e);
+      showLoading('לא ניתן לטעון את התוכנה. בדקו את החיבור לאינטרנט ורעננו את הדף.');
+    }
+  }
+
   async function shrinkImage(file) {
     if (!file.type.startsWith('image/')) return file;
     try {
@@ -1089,39 +1364,46 @@
     const n = db.shifts.filter(s => s.empId === emp.id).length;
     if (!confirm(`למחוק את ${emp.name}?\n\nכל הפרטים האישיים והמסמכים יימחקו.` + (n ? ` ${n} המשמרות שלו/ה יישארו ביומן ובסיכום.` : '') +
                  `\n\nלעובד שעזב מומלץ לבטל את הסימון "עובד פעיל" במקום למחוק, כדי לשמור את החוזה והמסמכים.`)) return;
-    try { for (const d of await docsOf(emp.id)) await docDel(d.id); } catch (e) {}
+    for (const d of docsOf(emp.id)) { try { await removeDoc(d); } catch (e) { return alert('אין חיבור לאינטרנט – אי אפשר למחוק את המסמכים של העובד כרגע. נסו שוב כשיש חיבור.'); } }
     db.employees = db.employees.filter(x => x !== emp);
     Object.values(db.schedules).forEach(w => Object.values(w.assign || {}).forEach(a => { const i = a.indexOf(emp.id); if (i >= 0) a.splice(i, 1); }));
     save(); $('empDlg').close(); renderAll(); empMsg(`${emp.name} נמחק/ה`, 'good');
   };
 
-  const docUrls = [];
   async function renderDocs() {
-    docUrls.splice(0).forEach(u => URL.revokeObjectURL(u));
-    let docs = [];
-    try { docs = await docsOf(edEmp.id); } catch (e) { $('edDocs').innerHTML = '<p class="msg err">אחסון המסמכים לא זמין בדפדפן זה</p>'; return; }
-    $('edDocs').innerHTML = docs.map(d => {
-      const u = URL.createObjectURL(d.blob); docUrls.push(u);
-      const ext = d.mime === 'application/pdf' ? '.pdf' : '.jpg';
-      return `<div class="doc"><a href="${u}" target="_blank" rel="noopener">${d.mime.startsWith('image/') ? `<img src="${u}" alt="">` : '<div class="pdf">📄 PDF</div>'}</a>
+    const docs = docsOf(edEmp.id);
+    if (!docs.length) { $('edDocs').innerHTML = '<p class="muted">אין מסמכים עדיין</p>'; return; }
+    $('edDocs').innerHTML = docs.map(d => `<div class="doc" id="doc_${d.id}">
+        <a target="_blank" rel="noopener" data-docurl>${d.mime.startsWith('image/') ? '<img alt="">' : '<div class="pdf">📄 PDF</div>'}</a>
         <div><b>${esc(d.type)}</b><br><span class="muted" style="font-size:13px">נוסף ${fmtDate(new Date(d.addedAt))}</span></div>
-        <div><a href="${u}" download="${esc(edEmp.name)} - ${esc(d.type)}${ext}">הורדה</a> · <button class="small danger" data-deldoc="${d.id}">מחיקה</button></div></div>`;
-    }).join('') || '<p class="muted">אין מסמכים עדיין</p>';
+        <div><a target="_blank" rel="noopener" data-docurl>פתיחה</a> · <button class="small danger" data-deldoc="${d.id}">מחיקה</button></div></div>`).join('');
+    for (const d of docs) {
+      const box = $('doc_' + d.id); if (!box) continue;
+      try {
+        const u = await docUrl(d);
+        box.querySelectorAll('[data-docurl]').forEach(a => { a.href = u; });
+        const img = box.querySelector('img'); if (img) img.src = u;
+      } catch (e) { const img = box.querySelector('img'); if (img) img.replaceWith(Object.assign(document.createElement('div'), { className: 'pdf', textContent: '📴 אין חיבור' })); }
+    }
   }
   $('edDocPick').onclick = () => $('edDocFile').click();
   $('edDocFile').onchange = async e => {
     const f = e.target.files[0]; e.target.value = '';
     if (!f || !edEmp) return;
     if (f.size > 15e6) return alert('הקובץ גדול מדי (מקסימום 15MB)');
+    if (!navigator.onLine) return alert('אין חיבור לאינטרנט – העלאת מסמכים לענן אפשרית רק כשיש חיבור.');
     const blob = await shrinkImage(f);
-    try { await docPut({ id: uid(), empId: edEmp.id, type: $('edDocType').value, name: f.name, mime: blob.type || f.type, blob, addedAt: new Date().toISOString() }); }
-    catch (err) { return alert('שמירת המסמך נכשלה: ' + err.message); }
+    $('edMsg').innerHTML = '<span class="muted">מעלה את המסמך לענן...</span>';
+    try { await uploadDoc({ id: uid(), empId: edEmp.id, type: $('edDocType').value, name: f.name, mime: blob.type || f.type, addedAt: new Date().toISOString() }, blob); $('edMsg').textContent = ''; }
+    catch (err) { $('edMsg').textContent = 'העלאת המסמך נכשלה: ' + (err.code || err.message); return; }
     renderDocs(); refreshDocCounts();
   };
   $('edDocs').onclick = async e => {
     const id = e.target.dataset.deldoc;
     if (!id || !confirm('למחוק את המסמך?')) return;
-    await docDel(id); renderDocs(); refreshDocCounts();
+    const d = db.docs.find(x => x.id === id); if (!d) return;
+    try { await removeDoc(d); } catch (err) { return alert('המחיקה נכשלה (אין חיבור?): ' + (err.code || err.message)); }
+    renderDocs(); refreshDocCounts();
   };
 
   // ----- opening hours & shift editors (shared by the setup wizard and the schedule screen) -----
@@ -1488,6 +1770,11 @@
   // ----- settings -----
   function renderSettings() {
     const s = S();
+    if (cloud.user) {
+      $('acctEmail').textContent = cloud.user.email;
+      $('acctVerify').innerHTML = cloud.user.emailVerified ? '<span class="status-ok">✓ מאומת</span>' : '<span class="status-wait">(המייל עדיין לא אומת – בדקו את תיבת הדואר)</span>';
+    }
+    updateSyncBadge();
     $('setStore').value = s.storeName;
     $('setAddress').value = s.address; $('setManager').value = s.managerName;
     $('setBizId').value = s.bizId; $('setPhone').value = s.phone;
@@ -1540,29 +1827,31 @@
     a.download = name; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
-  const blobToDataURL = b => new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); });
-  $('btnBackup').onclick = async () => {
-    let docs = [];
-    try { docs = await Promise.all((await docAll()).map(async d => Object.assign({}, d, { blob: undefined, data: await blobToDataURL(d.blob) }))); } catch (e) {}
-    download(JSON.stringify(Object.assign({}, db, { docs })), `גיבוי-נוכחות-${isoDate(new Date())}.json`, 'application/json');
+  $('btnBackup').onclick = () => {
+    // all data + the list of documents (the files themselves stay in the cloud; open them from the employee card)
+    download(JSON.stringify(Object.assign({}, db, { exportedAt: new Date().toISOString(), account: cloud.user && cloud.user.email })),
+             `גיבוי-${S().storeName}-${isoDate(new Date())}.json`, 'application/json');
   };
   $('btnRestore').onclick = () => $('restoreFile').click();
   $('restoreFile').onchange = async e => {
-    const f = e.target.files[0]; if (!f) return;
-    try {
-      const d = JSON.parse(await f.text());
-      if (!d.employees || !d.shifts || !d.settings) throw 0;
-      if (!confirm('השחזור ידרוס את כל הנתונים הנוכחיים. להמשיך?')) return;
-      const docs = d.docs || []; delete d.docs;
-      localStorage.setItem(KEY, JSON.stringify(d)); db = load();
-      if (docs.length || confirm('בגיבוי אין מסמכים. למחוק את המסמכים הקיימים בטאבלט?')) {
-        await docsOp('readwrite', st => st.clear());
-        for (const x of docs) { const blob = await (await fetch(x.data)).blob(); delete x.data; await docPut(Object.assign(x, { blob })); }
-      }
-      if ($('setupDlg').open) { $('setupDlg').close(); lock(); } else openScreen('settings');
-      alert('הנתונים שוחזרו');
-    } catch (err) { alert('קובץ גיבוי לא תקין'); }
-    e.target.value = '';
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    let d;
+    try { d = JSON.parse(await f.text()); if (!d.employees || !d.shifts || !d.settings) throw 0; }
+    catch (err) { return alert('קובץ גיבוי לא תקין'); }
+    if (!confirm('השחזור יחליף את כל הנתונים של העסק בחשבון הזה (בכל המכשירים). להמשיך?')) return;
+    const oldDocs = (d.docs || []).filter(x => x.data); // documents inside backups from the old version
+    if (oldDocs.length) d.docs = (d.docs || []).filter(x => !x.data);
+    const keepDocs = db.docs;
+    db = normalize(d);
+    if (!(d.docs && d.docs.length)) db.docs = keepDocs; // a backup without document details keeps the existing documents
+    save();
+    let n = 0;
+    for (const x of oldDocs) {
+      try { const blob = await (await fetch(x.data)).blob(); await uploadDoc({ id: x.id, empId: x.empId, type: x.type, name: x.name, mime: x.mime, addedAt: x.addedAt }, blob); n++; }
+      catch (err) { console.warn('restore doc failed', err); }
+    }
+    if ($('setupDlg').open) { $('setupDlg').close(); lock(); } else openScreen('settings');
+    alert('הנתונים שוחזרו ✓' + (oldDocs.length ? `\n${n} מתוך ${oldDocs.length} מסמכים הועלו לענן.` : ''));
   };
 
   // ---------- first-run setup wizard ----------
@@ -1619,7 +1908,7 @@
   };
 
   // ---------- tablet: offline, screen on, keep data ----------
-  const APP_VERSION = '1.4';
+  const APP_VERSION = '2.0';
   $('appVersion').textContent = APP_VERSION;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); // ask the browser not to evict our data
@@ -1632,9 +1921,9 @@
   keepAwake();
 
   // ---------- init ----------
-  setPin(''); renderHome(); tick();
-  if (!S().setupDone) openWizard();
+  setPin(''); tick();
   setInterval(tick, 1000);
+  boot();
 })();
 </script>
 </body>

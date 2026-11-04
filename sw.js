@@ -1,6 +1,8 @@
 // Offline support: always try the network first (so updates arrive), fall back to the saved copy.
-const CACHE = 'minimarket-v5';
-const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+const CACHE = 'minimarket-v6';
+const FB = './vendor/firebase-10.14.1/';
+const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png',
+  FB + 'firebase-app.js', FB + 'firebase-auth.js', FB + 'firebase-firestore.js', FB + 'firebase-storage.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))));
