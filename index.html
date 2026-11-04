@@ -168,7 +168,7 @@
 <header>
   <h1 id="storeTitle">מיני מרקט</h1>
   <div><span id="clock"></span><span id="syncBadge" class="sync"></span></div>
-  <button class="secondary small hidden" id="btnLock">🔒 נעילת ניהול</button>
+  <div style="display:flex;gap:8px"><button class="danger small hidden" id="btnHeaderSignOut">🚪 התנתקות</button><button class="secondary small hidden" id="btnLock">🔒 נעילת ניהול</button></div>
 </header>
 <nav id="nav">
   <button data-nav="home" class="active">🏠 כניסה למשמרת</button>
@@ -764,11 +764,11 @@
     document.querySelectorAll('[data-pane]').forEach(p => p.classList.toggle('hidden', p.dataset.pane !== tab));
     $('paneTitle').textContent = TITLES[tab];
     show('viewManager'); setActiveNav(tab);
-    $('btnLock').classList.remove('hidden'); resetIdle();
+    $('btnLock').classList.remove('hidden'); $('btnHeaderSignOut').classList.remove('hidden'); resetIdle();
   }
   function lock() {
     unlocked = false; current = null; myEmp = null; clearTimeout(idleTimer);
-    $('btnLock').classList.add('hidden');
+    $('btnLock').classList.add('hidden'); $('btnHeaderSignOut').classList.add('hidden');
     document.querySelectorAll('dialog[open]').forEach(d => { if (d.id !== 'setupDlg') d.close(); });
     renderHome(); show('viewHome'); setActiveNav('home');
   }
@@ -1208,6 +1208,7 @@
     try { await cloud.A.sendPasswordResetEmail(cloud.auth, cloud.user.email); alert(`נשלח קישור לשינוי סיסמה אל ${cloud.user.email}`); }
     catch (e) { alert(authErr(e)); }
   };
+  $('btnHeaderSignOut').onclick = () => $('btnSignOut').click();
   $('btnSignOut').onclick = async () => {
     if (!confirm('להתנתק מהחשבון?\n\nאחרי ההתנתקות העובדים לא יוכלו להיכנס למשמרות בטאבלט הזה עד שתתחבר שוב. הנתונים שמורים בענן ולא יימחקו.')) return;
     if (cloud.pending && !confirm('יש נתונים שעדיין לא עלו לענן (אין חיבור?). אם תתנתק עכשיו הם יאבדו. להתנתק בכל זאת?')) return;
@@ -1908,7 +1909,7 @@
   };
 
   // ---------- tablet: offline, screen on, keep data ----------
-  const APP_VERSION = '2.0';
+  const APP_VERSION = '2.1';
   $('appVersion').textContent = APP_VERSION;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); // ask the browser not to evict our data
