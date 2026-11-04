@@ -452,7 +452,7 @@
     </div>
   </div>
   <div id="wz2" class="hidden">
-    <p style="margin-top:0">באילו ימים ושעות העסק פתוח?</p>
+    <p style="margin-top:0">באילו ימים ושעות העסק פתוח? סניף שפתוח כל היממה – מסמנים <b>"24 שעות"</b>.</p>
     <div class="table-wrap"><table class="shift-editor" id="wzHours"></table></div>
     <button class="secondary small" id="wzCopyHours" style="margin-top:8px">העתקת השעות של יום ראשון לכל הימים הפתוחים</button>
     <p class="muted" style="font-size:14px">עסק שסוגר אחרי חצות: פשוט מזינים את שעת הסגירה (למשל 02:00).</p>
@@ -1470,6 +1470,7 @@
   const newShift = () => ({ id: uid(), name: 'משמרת', start: '12:00', end: '18:00', need: [0, 0, 0, 0, 0, 0, 0] });
   // The shift's hours on a given day, cut to that day's opening hours (null = no overlap)
   function clipShift(t, h) {
+    if (h.allDay || h.open === h.close) return { start: t.start, end: t.end }; // open around the clock
     let o = toMin(h.open), c = toMin(h.close); if (c <= o) c += 1440;
     let st = toMin(t.start), en = toMin(t.end); if (en <= st) en += 1440;
     if (en <= o) { st += 1440; en += 1440; } // shift after midnight
@@ -1492,17 +1493,21 @@
   // Effective shift on day d of the current schedule
   const shiftOn = (t, d) => clipShift(t, S().hours[d]) || t;
   function renderHoursEditor(el, hours) {
-    el.innerHTML = '<tr><th>יום</th><th>פתוח?</th><th>פתיחה</th><th>סגירה</th></tr>' + DAYS.map((dn, d) => {
-      const h = hours[d], dis = h.closed ? 'disabled' : '';
+    el.innerHTML = '<tr><th>יום</th><th>פתוח?</th><th>24 שעות</th><th>פתיחה</th><th>סגירה</th></tr>' + DAYS.map((dn, d) => {
+      const h = hours[d], dis = h.closed || h.allDay ? 'disabled' : '';
       return `<tr data-d="${d}"><th>${dn}</th><td><input type="checkbox" data-f="isOpen" ${h.closed ? '' : 'checked'} style="width:26px;height:26px"></td>
-        <td><input type="time" data-f="open" value="${h.open}" ${dis}></td><td><input type="time" data-f="close" value="${h.close}" ${dis}></td></tr>`;
+        <td><input type="checkbox" data-f="allDay" ${h.allDay && !h.closed ? 'checked' : ''} ${h.closed ? 'disabled' : ''} style="width:26px;height:26px" title="פתוח 24 שעות"></td>
+        ${h.allDay && !h.closed ? '<td colspan="2" style="text-align:center;font-weight:bold;color:var(--ok)">🕛 פתוח כל היממה</td>'
+          : `<td><input type="time" data-f="open" value="${h.open}" ${dis}></td><td><input type="time" data-f="close" value="${h.close}" ${dis}></td>`}</tr>`;
     }).join('');
   }
   function bindHoursEditor(el, getHours, onChange) {
     el.onchange = e => {
       const tr = e.target.closest('tr[data-d]'), f = e.target.dataset.f; if (!tr || !f) return;
       const h = getHours()[+tr.dataset.d];
-      if (f === 'isOpen') h.closed = !e.target.checked; else h[f] = e.target.value || h[f];
+      if (f === 'isOpen') { h.closed = !e.target.checked; if (h.closed) h.allDay = false; }
+      else if (f === 'allDay') { h.allDay = e.target.checked; if (h.allDay) { h.open = '00:00'; h.close = '00:00'; } else { h.open = '07:00'; h.close = '23:00'; } }
+      else h[f] = e.target.value || h[f];
       setTimeout(onChange);
     };
   }
@@ -1534,10 +1539,14 @@
   // Split the opening hours into a morning and an evening shift, 1 worker each
   function suggestShifts(hours) {
     const open = hours.filter(h => !h.closed); if (!open.length) return [];
+    const need = hours.map(h => (h.closed ? 0 : 1));
+    if (open.every(h => h.allDay)) // open around the clock: morning, evening and night
+      return [{ id: 'm', name: 'בוקר', start: '07:00', end: '15:00', need: need.slice() },
+              { id: 'e', name: 'ערב', start: '15:00', end: '23:00', need: need.slice() },
+              { id: 'n', name: 'לילה', start: '23:00', end: '07:00', need: need.slice() }];
     const o = Math.min(...open.map(h => toMin(h.open)));
     const c = Math.max(...open.map(h => { const x = toMin(h.close); return x <= toMin(h.open) ? x + 1440 : x; }));
     const mid = Math.round((o + (c - o) / 2) / 60) * 60;
-    const need = hours.map(h => (h.closed ? 0 : 1));
     return [{ id: 'm', name: 'בוקר', start: fromMin(o), end: fromMin(mid), need: need.slice() },
             { id: 'e', name: 'ערב', start: fromMin(mid), end: fromMin(c), need: need.slice() }];
   }
@@ -1928,7 +1937,7 @@
   }
   bindHoursEditor($('wzHours'), () => wz.hours, () => renderHoursEditor($('wzHours'), wz.hours));
   bindTypesEditor($('wzTypes'), () => wz.types, renderWz);
-  $('wzCopyHours').onclick = () => { const h0 = wz.hours[0]; wz.hours.forEach(h => { if (!h.closed) { h.open = h0.open; h.close = h0.close; } }); renderWz(); };
+  $('wzCopyHours').onclick = () => { const h0 = wz.hours[0]; wz.hours.forEach(h => { if (!h.closed) { h.open = h0.open; h.close = h0.close; h.allDay = !!h0.allDay; } }); renderWz(); };
   $('wzSuggest').onclick = () => { wz.types = suggestShifts(wz.hours); renderWz(); };
   $('wzAddType').onclick = () => { wz.types.push(newShift()); renderWz(); };
   $('wzPrev').onclick = () => { wzStep--; renderWz(); };
@@ -1944,7 +1953,8 @@
     }
     if (wzStep === 2) {
       if (wz.hours.every(h => h.closed)) return err('יש לסמן לפחות יום פעילות אחד');
-      if (wz.types.every(t => t.need.every((n, d) => !n || wz.hours[d].closed))) wz.types = suggestShifts(wz.hours); // first visit: suggest shifts
+      const untouched = JSON.stringify(wz.types) === JSON.stringify(DEFAULTS.shiftTypes);
+      if (untouched || wz.types.every(t => t.need.every((n, d) => !n || wz.hours[d].closed))) wz.types = suggestShifts(wz.hours); // suggest shifts that fit the hours
     }
     if (wzStep === 3) {
       const w = shiftWarnings(wz.types, wz.hours).warn;
@@ -1964,7 +1974,7 @@
   };
 
   // ---------- tablet: offline, screen on, keep data ----------
-  const APP_VERSION = '2.2';
+  const APP_VERSION = '2.3';
   $('appVersion').textContent = APP_VERSION;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); // ask the browser not to evict our data
