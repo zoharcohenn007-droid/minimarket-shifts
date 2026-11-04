@@ -1,0 +1,1409 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>שעון נוכחות – מיני מרקט</title>
+<meta name="theme-color" content="#263238">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #fff; --text: #1d1f23; --muted: #666b75; --border: #dde0e5;
+    --primary: #1565c0; --ok: #2e7d32; --danger: #c62828; --warn: #ffd600;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; background: var(--bg); color: var(--text); font-size: 18px; }
+  header { background: #263238; color: #fff; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  header h1 { font-size: 22px; margin: 0; }
+  #clock { font-size: 24px; font-variant-numeric: tabular-nums; }
+  .layout { display: grid; grid-template-columns: 1fr; gap: 16px; padding: 16px; max-width: 1400px; margin: 0 auto; }
+  /* Tablet landscape / wide: warning panel always visible on the side */
+  @media (min-width: 900px) {
+    .layout { grid-template-columns: minmax(360px, 42%) 1fr; align-items: start; }
+    .age-banner { position: sticky; top: 78px; }
+  }
+  /* Narrow: warning stays pinned at the top in compact form */
+  @media (max-width: 899px) {
+    .age-banner { position: sticky; top: 62px; z-index: 5; }
+    .age-banner .examples, .age-banner .foot { display: none; }
+  }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  button { font: inherit; border: 0; border-radius: 10px; padding: 12px 18px; cursor: pointer; background: var(--primary); color: #fff; }
+  button.secondary { background: #e3e7ec; color: var(--text); }
+  button.ok { background: var(--ok); }
+  button.danger { background: var(--danger); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.small { padding: 6px 10px; font-size: 15px; }
+  input, select, textarea { font: inherit; padding: 10px; border: 1px solid var(--border); border-radius: 8px; width: 100%; background: #fff; }
+  label { display: block; margin: 8px 0 4px; color: var(--muted); font-size: 15px; }
+  table { width: 100%; border-collapse: collapse; font-size: 16px; }
+  th, td { padding: 8px; border-bottom: 1px solid var(--border); text-align: right; vertical-align: top; }
+  th { background: #eef1f4; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+  .row > * { flex: 1 1 160px; }
+  .hidden { display: none !important; }
+  .muted { color: var(--muted); }
+  .tag { display: inline-block; font-size: 13px; padding: 2px 8px; border-radius: 10px; background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; margin-top: 2px; }
+  .tag.blue { background: #e3f2fd; color: #0d47a1; border-color: #90caf9; }
+
+  /* ===== Age banner ===== */
+  .age-banner { background: var(--danger); color: #fff; border: 8px solid var(--warn); border-radius: 16px; padding: 14px; text-align: center; }
+  .age-banner h2 { margin: 0 0 6px; font-size: 28px; color: var(--warn); line-height: 1.25; }
+  .age-banner .today { font-size: 22px; }
+  .age-banner .cutoff { background: var(--warn); color: #000; border-radius: 12px; padding: 10px; margin: 10px 0; font-size: 20px; }
+  .age-banner .cutoff b { font-size: 44px; display: block; letter-spacing: 1px; direction: ltr; }
+  .examples { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .ex { border-radius: 12px; padding: 10px; font-size: 19px; }
+  .ex.yes { background: #1b5e20; border: 3px solid #a5d6a7; }
+  .ex.no { background: #000; border: 3px solid var(--warn); }
+  .ex b { font-size: 26px; display: block; margin: 2px 0; direction: ltr; }
+  .night { background: #000; color: var(--warn); border-radius: 10px; padding: 8px; margin-top: 10px; font-weight: bold; font-size: 20px; }
+  .foot { margin-top: 10px; font-size: 22px; font-weight: bold; }
+  .idbox { margin-top: 10px; border-radius: 12px; overflow: hidden; border: 3px solid var(--warn); font-size: 19px; line-height: 1.4; }
+  .idbox .ok-id { background: #fff; color: #000; padding: 8px 10px; }
+  .idbox .no-id { background: #000; color: var(--warn); padding: 8px 10px; font-weight: bold; }
+
+  /* ===== Keypad ===== */
+  .pin-display { font-size: 40px; letter-spacing: 16px; text-align: center; min-height: 56px; direction: ltr; }
+  .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 360px; margin: 12px auto; direction: ltr; }
+  .keypad button { font-size: 30px; padding: 18px 0; background: #eceff1; color: var(--text); }
+  .msg { text-align: center; min-height: 26px; font-weight: bold; }
+  .msg.err { color: var(--danger); } .msg.good { color: var(--ok); }
+
+  /* ===== Guidelines ===== */
+  .prod { border-radius: 12px; padding: 10px 14px; margin: 10px 0; }
+  .prod h3 { margin: 0 0 6px; font-size: 20px; }
+  .prod.alc { background: #fce4ec; border: 2px solid #ec407a; }
+  .prod.smk { background: #ede7f6; border: 2px solid #7e57c2; }
+  .chip { display: inline-block; background: #fff; border: 1px solid #bbb; border-radius: 16px; padding: 3px 12px; margin: 3px; font-size: 17px; }
+  .rules { background: #fff8e1; border: 3px solid #f9a825; border-radius: 12px; padding: 8px 16px; }
+  .rules li { margin: 8px 0; line-height: 1.5; }
+  .check { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 2px solid var(--border); border-radius: 10px; margin: 10px 0; cursor: pointer; background: #fff; font-size: 19px; color: var(--text); }
+  .check input { width: 28px; height: 28px; flex: none; margin: 0; }
+  .check.on { border-color: var(--ok); background: #e8f5e9; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { background: #e3e7ec; color: var(--text); }
+  .tabs button.active { background: var(--primary); color: #fff; }
+  .onshift span { display: inline-block; background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 20px; padding: 4px 12px; margin: 4px; }
+  .table-wrap { overflow-x: auto; }
+  dialog { border: 0; border-radius: 14px; padding: 20px; width: min(480px, 94vw); }
+  dialog::backdrop { background: rgba(0,0,0,.5); }
+  details { background: #f6f8fa; border-radius: 10px; padding: 10px 14px; margin-top: 12px; }
+  details summary { cursor: pointer; font-weight: bold; }
+  h3.section { margin: 20px 0 4px; border-top: 1px solid var(--border); padding-top: 14px; }
+  dialog.wide { width: min(760px, 96vw); max-height: 92vh; }
+  .docs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
+  .doc { border: 1px solid var(--border); border-radius: 10px; padding: 8px; font-size: 15px; display: flex; flex-direction: column; gap: 6px; }
+  .doc img, .doc .pdf { width: 100%; height: 110px; object-fit: cover; border-radius: 6px; background: #eee; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .doc a { color: var(--primary); }
+  .sched th { white-space: nowrap; }
+  .sched td.cell { cursor: pointer; min-width: 120px; } .sched td.cell:hover { background: #f0f6ff; }
+  .sched td.closed { color: var(--muted); background: #f6f6f6; text-align: center; }
+  .chip.warn { border-color: var(--danger); background: #ffebee; }
+  .missing { color: #fff; background: var(--danger); border-radius: 8px; padding: 2px 8px; display: inline-block; font-size: 14px; margin-top: 4px; }
+  .cst { width: 100%; padding: 10px 6px; background: #eceff1; color: var(--text); font-size: 16px; }
+  .cst.no { background: #ffcdd2; color: #b71c1c; } .cst.pref { background: #c8e6c9; color: #1b5e20; }
+  a.wa { display: inline-block; background: #25d366; color: #fff; padding: 6px 12px; border-radius: 8px; text-decoration: none; font-size: 15px; }
+  .tabs.sub button { padding: 8px 14px; font-size: 16px; }
+  #setupDlg { width: min(980px, 96vw); }
+  .shift-editor th, .shift-editor td { padding: 6px 4px; }
+  .shift-editor input { padding: 7px 5px; }
+  .shift-editor input[type=time] { width: 108px; }
+  .shift-editor input[data-f=name] { min-width: 70px !important; width: 90px; }
+  .shift-editor input[type=number] { width: 46px !important; text-align: center; }
+  nav#nav { background: #37474f; display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; position: sticky; top: 0; z-index: 10; }
+  nav#nav button { background: transparent; color: #eceff1; padding: 10px 14px; white-space: nowrap; font-size: 17px; border-radius: 8px; flex: none; }
+  nav#nav button:hover { background: rgba(255,255,255,.12); }
+  nav#nav button.active { background: #fff; color: #263238; font-weight: bold; }
+  .pane-title { margin: 0 0 14px; font-size: 26px; }
+  .warnbox { background: #fff3e0; border: 2px solid #ffb74d; border-radius: 10px; padding: 10px 14px; margin-top: 12px; font-size: 16px; line-height: 1.6; }
+  .steps { display: flex; gap: 6px; margin: 12px 0 16px; }
+  .steps span { flex: 1; text-align: center; padding: 8px 4px; border-radius: 8px; background: #eceff1; color: var(--muted); font-size: 15px; }
+  .steps span.on { background: var(--primary); color: #fff; font-weight: bold; }
+  .steps span.done { background: #c8e6c9; color: #1b5e20; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="storeTitle">מיני מרקט</h1>
+  <div id="clock"></div>
+  <button class="secondary small hidden" id="btnLock">🔒 נעילת ניהול</button>
+</header>
+<nav id="nav">
+  <button data-nav="home" class="active">🏠 כניסה למשמרת</button>
+  <button data-nav="log">📋 יומן משמרות</button>
+  <button data-nav="summary">📊 סיכום חודשי</button>
+  <button data-nav="emps">👥 עובדים</button>
+  <button data-nav="sched">📅 סידור עבודה</button>
+  <button data-nav="settings">⚙️ הגדרות</button>
+</nav>
+
+<div class="layout">
+  <!-- Warning panel: always on screen -->
+  <aside class="age-banner" id="ageBanner"></aside>
+
+  <main>
+    <!-- ===== Home: PIN entry ===== -->
+    <section id="viewHome" class="card">
+      <h2 style="margin-top:0;text-align:center">כניסה / יציאה ממשמרת</h2>
+      <p class="muted" style="text-align:center;margin:0">הקלד/י קוד אישי בן 4 ספרות</p>
+      <div class="pin-display" id="pinDisplay"></div>
+      <div class="keypad" id="keypad"></div>
+      <div class="msg" id="homeMsg"></div>
+      <div class="onshift" id="onShift"></div>
+    </section>
+
+    <!-- ===== Clock-in: guidelines ===== -->
+    <section id="viewGuidelines" class="card hidden">
+      <h2 style="margin-top:0">שלום <span id="gName"></span>, לפני תחילת המשמרת</h2>
+      <p style="margin:0">חל איסור מכירה למי שטרם מלאו לו 18 על כל המוצרים הבאים:</p>
+      <div class="prod alc"><h3>🍺 אלכוהול</h3><div id="gAlc"></div></div>
+      <div class="prod smk"><h3>🚬 מוצרי עישון</h3><div id="gSmk"></div></div>
+      <div class="rules"><ol id="gRules"></ol></div>
+      <label class="check" id="chk1Wrap"><input type="checkbox" id="chk1"> קראתי והבנתי את ההנחיות למכירת אלכוהול ומוצרי עישון.</label>
+      <label class="check" id="chk2Wrap"><input type="checkbox" id="chk2"> אני מתחייב/ת לבקש תעודה מכל לקוח שנראה צעיר, לקבל רק תעודת זהות או דרכון מקוריים ובתוקף, ולא למכור אלכוהול או מוצרי עישון למי שטרם מלאו לו 18 או שלא הציג תעודה כזו.</label>
+      <div class="row" style="margin-top:16px">
+        <button class="ok" id="btnClockIn" disabled>אישור וכניסה למשמרת</button>
+        <button class="secondary" id="btnCancelIn">ביטול</button>
+      </div>
+    </section>
+
+    <!-- ===== Clock-out ===== -->
+    <section id="viewClockOut" class="card hidden">
+      <h2 style="margin-top:0"><span id="oName"></span>, את/ה במשמרת</h2>
+      <p id="oSince" style="font-size:22px"></p>
+      <div class="row">
+        <button class="danger" id="btnClockOut">יציאה ממשמרת</button>
+        <button class="secondary" id="btnCancelOut">ביטול</button>
+      </div>
+    </section>
+
+    <!-- ===== Manager ===== -->
+    <section id="viewManager" class="card hidden">
+      <h2 class="pane-title" id="paneTitle"></h2>
+
+      <!-- Log -->
+      <div data-pane="log">
+        <div class="row">
+          <div><label>חודש</label><input type="month" id="logMonth"></div>
+          <div><label>עובד</label><select id="logEmp"></select></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="ok" id="btnAddShift">➕ הוספת משמרת ידנית</button>
+          <button class="secondary" id="btnCsv">ייצוא לאקסל (CSV)</button>
+        </div>
+        <div class="table-wrap"><table style="margin-top:12px">
+          <thead><tr><th>עובד</th><th>תאריך</th><th>כניסה</th><th>יציאה</th><th>שעות</th><th>אישור הנחיות</th><th></th></tr></thead>
+          <tbody id="logBody"></tbody>
+        </table></div>
+      </div>
+
+      <!-- Summary -->
+      <div data-pane="summary" class="hidden">
+        <div class="row">
+          <div><label>חודש</label><input type="month" id="sumMonth"></div>
+          <div style="flex:0 0 auto"><button id="btnSendNow">📧 שליחת הסיכום למייל</button></div>
+        </div>
+        <div class="msg" id="sumMsg"></div>
+        <div class="table-wrap"><table style="margin-top:12px">
+          <thead><tr><th>עובד</th><th>מספר משמרות</th><th>סה״כ שעות</th></tr></thead>
+          <tbody id="sumBody"></tbody>
+        </table></div>
+        <p class="muted" id="sumOpenWarn"></p>
+      </div>
+
+      <!-- Employees -->
+      <div data-pane="emps" class="hidden">
+        <div class="row">
+          <div style="flex:0 0 auto"><button class="ok" id="btnNewEmp">➕ הוספת עובד</button></div>
+          <div><input id="empSearch" placeholder="🔍 חיפוש לפי שם / טלפון / ת״ז"></div>
+        </div>
+        <div class="msg" id="empMsg"></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>שם</th><th>גיל</th><th>טלפון</th><th>ת״ז</th><th>מסמכים</th><th>סטטוס</th><th></th></tr></thead>
+          <tbody id="empBody"></tbody>
+        </table></div>
+      </div>
+
+      <!-- Work schedule -->
+      <div data-pane="sched" class="hidden">
+        <div class="row" style="align-items:center">
+          <div style="flex:0 0 auto"><button class="secondary small" id="btnPrevWeek">→ שבוע קודם</button></div>
+          <div style="text-align:center"><b id="weekLabel"></b></div>
+          <div style="flex:0 0 auto"><button class="secondary small" id="btnNextWeek">שבוע הבא ←</button></div>
+        </div>
+        <div class="tabs sub" id="schedSub" style="margin-top:12px">
+          <button data-sub="grid" class="active">הסידור</button>
+          <button data-sub="cons">אילוצי עובדים</button>
+          <button data-sub="types">שעות פעילות ומשמרות</button>
+        </div>
+        <div data-subpane="grid">
+          <div class="row">
+            <button id="btnAuto">⚙️ בנייה אוטומטית</button>
+            <button class="secondary" id="btnShareGroup">💬 שליחת הסידור לקבוצה</button>
+            <button class="secondary" id="btnCopyGroup">📋 העתקה</button>
+          </div>
+          <div class="msg" id="schedMsg"></div>
+          <p class="muted" style="font-size:15px;margin:4px 0">לחיצה על משמרת מאפשרת לשנות את העובדים בה.</p>
+          <div class="table-wrap"><table class="sched"><thead><tr id="schedHead"></tr></thead><tbody id="schedBody"></tbody></table></div>
+          <h3 class="section">שליחה אישית לכל עובד</h3>
+          <div class="table-wrap"><table><thead><tr><th>עובד</th><th>משמרות</th><th></th></tr></thead><tbody id="waList"></tbody></table></div>
+        </div>
+        <div data-subpane="cons" class="hidden">
+          <div class="row"><div><label>עובד</label><select id="consEmp"></select></div></div>
+          <p class="muted" style="font-size:15px">לחיצה על משבצת מחליפה בין: <b>פנוי</b> ← <b style="color:#b71c1c">✗ לא יכול</b> ← <b style="color:#1b5e20">⭐ מעדיף</b></p>
+          <div class="table-wrap"><table id="consTable"></table></div>
+          <label>הערות העובד לשבוע זה</label><input id="consNote" placeholder="לדוגמה: מבחן ביום רביעי">
+        </div>
+        <div data-subpane="types" class="hidden">
+          <h3 style="margin:4px 0">שעות פעילות העסק</h3>
+          <div class="table-wrap"><table class="shift-editor" id="hoursTable"></table></div>
+          <h3 style="margin:18px 0 4px">משמרות וכמות עובדים בכל משמרת</h3>
+          <p class="muted" style="font-size:15px;margin:0 0 6px">לכל משמרת: שעת התחלה וסיום, וכמה עובדים צריך בכל יום. בימים שהעסק סגור לא משבצים.</p>
+          <div class="table-wrap"><table class="shift-editor" id="typesTable"></table></div>
+          <button class="secondary" id="btnAddType" style="margin-top:10px">➕ הוספת משמרת</button>
+          <div id="typesWarn"></div>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div data-pane="settings" class="hidden">
+        <h3 class="section" style="border:0;padding:0;margin-top:0">פרטי העסק</h3>
+        <div class="row">
+          <div><label>שם העסק</label><input id="setStore"></div>
+          <div><label>סוג העסק</label><input id="setBizType" value="מיני מרקט" readonly></div>
+        </div>
+        <div class="row">
+          <div><label>כתובת</label><input id="setAddress"></div>
+          <div><label>שם המנהל / בעל העסק</label><input id="setManager"></div>
+        </div>
+        <div class="row">
+          <div><label>ח.פ. / עוסק מורשה</label><input id="setBizId" inputmode="numeric" dir="ltr"></div>
+          <div><label>טלפון</label><input id="setPhone" type="tel" inputmode="tel" dir="ltr"></div>
+        </div>
+
+        <p class="muted" style="font-size:15px">שעות הפעילות והמשמרות נמצאות ב: 📅 סידור עבודה ← שעות פעילות ומשמרות.</p>
+
+        <h3 class="section">הנחיות מכירה</h3>
+        <label>סוגי אלכוהול (מופרדים בפסיק)</label>
+        <textarea id="setAlc" rows="3"></textarea>
+        <label>מוצרי עישון (מופרדים בפסיק)</label>
+        <textarea id="setSmk" rows="3"></textarea>
+        <label>כללי מכירה (שורה אחת לכל כלל)</label>
+        <textarea id="setRules" rows="8"></textarea>
+
+        <h3 class="section">סיכום חודשי במייל</h3>
+        <label>כתובת המייל שלך</label>
+        <input id="setEmail" type="email" dir="ltr" placeholder="name@example.com">
+        <label class="check" style="font-size:17px"><input type="checkbox" id="setAuto"> לשלוח אוטומטית ב-1 לכל חודש את סיכום החודש הקודם (דורש הגדרת EmailJS)</label>
+        <details>
+          <summary>הגדרת שליחה אוטומטית (EmailJS) – הוראות</summary>
+          <ol style="line-height:1.6">
+            <li>להירשם בחינם באתר <b dir="ltr">emailjs.com</b>.</li>
+            <li>Email Services ← Add New Service ← לחבר את חשבון המייל (למשל Gmail). להעתיק את ה-<b>Service ID</b>.</li>
+            <li>Email Templates ← Create New Template. בשדה <b>To Email</b> לכתוב <code dir="ltr">{{to_email}}</code>, בנושא <code dir="ltr">{{subject}}</code>, ובגוף ההודעה <code dir="ltr">{{message}}</code>. לשמור ולהעתיק את ה-<b>Template ID</b>.</li>
+            <li>Account ← להעתיק את ה-<b>Public Key</b>.</li>
+            <li>להדביק את שלושת הערכים כאן, לשמור וללחוץ "שליחת מייל ניסיון".</li>
+          </ol>
+          <div class="row">
+            <div><label>Service ID</label><input id="setEjService" dir="ltr"></div>
+            <div><label>Template ID</label><input id="setEjTemplate" dir="ltr"></div>
+            <div><label>Public Key</label><input id="setEjKey" dir="ltr"></div>
+          </div>
+          <button class="secondary" id="btnTestMail" style="margin-top:10px">שליחת מייל ניסיון</button>
+        </details>
+        <p class="muted" id="lastSentInfo"></p>
+
+        <h3 class="section">אבטחה וגיבוי</h3>
+        <label>קוד מנהל חדש – 4 ספרות (השאר ריק כדי לא לשנות)</label>
+        <input id="setPin" inputmode="numeric" maxlength="4">
+        <div class="row" style="margin-top:16px">
+          <button id="btnSaveSettings">שמירת הגדרות</button>
+          <button class="secondary" id="btnBackup">הורדת גיבוי</button>
+          <button class="secondary" id="btnRestore">שחזור מגיבוי</button>
+          <input type="file" id="restoreFile" accept=".json" class="hidden">
+        </div>
+        <div class="msg" id="setMsg"></div>
+        <p class="muted" style="font-size:14px;text-align:center;margin-top:24px">גרסה <span id="appVersion"></span></p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- First-run setup wizard -->
+<dialog id="setupDlg" class="wide">
+  <h3 style="margin:0">ברוך הבא! הקמת העסק</h3>
+  <div class="steps" id="wzSteps"><span>1. פרטי העסק</span><span>2. שעות פעילות</span><span>3. משמרות ועובדים</span><span>4. קוד מנהל</span></div>
+  <div id="wz1">
+    <label>שם העסק *</label><input id="suStore">
+    <div class="row"><div><label>כתובת</label><input id="suAddress"></div><div><label>שם המנהל / בעל העסק</label><input id="suManager"></div></div>
+    <div class="row">
+      <div><label>ח.פ. / עוסק מורשה</label><input id="suBizId" inputmode="numeric" dir="ltr"></div>
+      <div><label>טלפון</label><input id="suPhone" type="tel" dir="ltr"></div>
+    </div>
+    <label>מייל לקבלת סיכום חודשי</label><input id="suEmail" type="email" dir="ltr">
+  </div>
+  <div id="wz2" class="hidden">
+    <p style="margin-top:0">באילו ימים ושעות העסק פתוח?</p>
+    <div class="table-wrap"><table class="shift-editor" id="wzHours"></table></div>
+    <button class="secondary small" id="wzCopyHours" style="margin-top:8px">העתקת השעות של יום ראשון לכל הימים הפתוחים</button>
+    <p class="muted" style="font-size:14px">עסק שסוגר אחרי חצות: פשוט מזינים את שעת הסגירה (למשל 02:00).</p>
+  </div>
+  <div id="wz3" class="hidden">
+    <p style="margin-top:0">אילו משמרות יש בעסק, ובאילו שעות? כמה עובדים צריך בכל משמרת, בכל יום?</p>
+    <button class="secondary small" id="wzSuggest">💡 הצעה אוטומטית לפי שעות הפעילות</button>
+    <div class="table-wrap" style="margin-top:8px"><table class="shift-editor" id="wzTypes"></table></div>
+    <button class="secondary small" id="wzAddType" style="margin-top:8px">➕ הוספת משמרת</button>
+    <div id="wzWarn"></div>
+  </div>
+  <div id="wz4" class="hidden">
+    <p style="margin-top:0">בחר קוד מנהל בן 4 ספרות. הקוד יידרש לכניסה לכל כלי הניהול שבסרגל הכלים.</p>
+    <div class="row">
+      <div><label>קוד מנהל *</label><input id="suPin" type="password" inputmode="numeric" maxlength="4" dir="ltr"></div>
+      <div><label>הקלדה חוזרת של הקוד *</label><input id="suPin2" type="password" inputmode="numeric" maxlength="4" dir="ltr"></div>
+    </div>
+  </div>
+  <div class="msg err" id="suMsg"></div>
+  <div class="row" style="margin-top:12px">
+    <button class="secondary" id="wzPrev">→ הקודם</button>
+    <button class="ok" id="wzNext">הבא ←</button>
+  </div>
+</dialog>
+
+<!-- Manager PIN -->
+<dialog id="mgrDlg" style="width:min(400px,94vw)">
+  <h3 style="margin-top:0;text-align:center">🔒 הקלד קוד מנהל</h3>
+  <div class="pin-display" id="mgrPinDisplay"></div>
+  <div class="keypad" id="mgrKeypad"></div>
+  <div class="msg err" id="mgrMsg"></div>
+  <button class="secondary" id="mgrCancel" style="width:100%">ביטול</button>
+</dialog>
+
+<!-- Employee profile -->
+<dialog id="empDlg" class="wide">
+  <h3 id="edTitle" style="margin-top:0"></h3>
+  <div class="row"><div><label>שם מלא *</label><input id="edName"></div><div><label>קוד כניסה (4 ספרות) *</label><input id="edPin" inputmode="numeric" maxlength="4" dir="ltr"></div></div>
+  <div class="row"><div><label>תעודת זהות</label><input id="edIdNum" inputmode="numeric" maxlength="9" dir="ltr"></div><div><label>תאריך לידה <span id="edAge"></span></label><input type="date" id="edBirth"></div></div>
+  <div class="row"><div><label>טלפון נייד (לוואטסאפ)</label><input id="edPhone" type="tel" dir="ltr"></div><div><label>מייל</label><input id="edEmail" type="email" dir="ltr"></div></div>
+  <label>כתובת</label><input id="edAddress">
+  <div class="row"><div><label>תחילת עבודה</label><input type="date" id="edStart"></div><div><label>שכר לשעה (₪)</label><input id="edWage" type="number" min="0" step="0.01" dir="ltr"></div><div><label>מקס׳ משמרות בשבוע</label><input id="edMax" type="number" min="0" max="14" dir="ltr"></div></div>
+  <label>הערות</label><textarea id="edNotes" rows="2"></textarea>
+  <label class="check" style="font-size:17px"><input type="checkbox" id="edActive"> עובד פעיל (יכול להחתים כניסה ולהשתבץ בסידור)</label>
+  <div id="edDocsWrap">
+    <h3 class="section">מסמכים</h3>
+    <div class="row"><div><label>סוג המסמך</label><select id="edDocType"></select></div>
+      <div style="flex:0 0 auto"><button class="secondary" id="edDocPick">📷 צילום / העלאת קובץ</button></div></div>
+    <input type="file" id="edDocFile" accept="image/*,application/pdf" class="hidden">
+    <div class="docs" id="edDocs"></div>
+  </div>
+  <div class="msg err" id="edMsg"></div>
+  <div class="row" style="margin-top:12px">
+    <button class="ok" id="edSave">שמירה</button>
+    <button class="danger" id="edDelete">🗑️ מחיקת עובד</button>
+    <button class="secondary" id="edClose">סגירה</button>
+  </div>
+</dialog>
+
+<!-- Schedule cell -->
+<dialog id="cellDlg">
+  <h3 id="cdTitle" style="margin-top:0"></h3>
+  <div id="cdList"></div>
+  <div class="row" style="margin-top:12px"><button class="ok" id="cdSave">שמירה</button><button class="secondary" id="cdClose">ביטול</button></div>
+</dialog>
+
+<!-- Shift add/edit dialog -->
+<dialog id="shiftDlg">
+  <h3 style="margin-top:0" id="dlgTitle">משמרת</h3>
+  <label>עובד</label><select id="dlgEmp"></select>
+  <label>תאריך כניסה</label><input type="date" id="dlgDate">
+  <div class="row">
+    <div><label>שעת כניסה</label><input type="time" id="dlgIn"></div>
+    <div><label>שעת יציאה</label><input type="time" id="dlgOut"></div>
+  </div>
+  <p class="muted" style="font-size:15px">יציאה מוקדמת משעת הכניסה תיחשב כיום הבא (משמרת לילה). השאר את שעת היציאה ריקה אם העובד עדיין במשמרת.</p>
+  <label>סיבת התיקון / הערה</label><input id="dlgNote" placeholder="לדוגמה: העובד שכח להחתים יציאה">
+  <div class="msg err" id="dlgMsg"></div>
+  <div class="row" style="margin-top:12px">
+    <button class="ok" id="dlgSave">שמירה</button>
+    <button class="danger hidden" id="dlgDelete">מחיקה</button>
+    <button class="secondary" id="dlgCancel">ביטול</button>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+  const KEY = 'minimarket_shifts_v1';
+  const DEFAULTS = {
+    storeName: 'מיני מרקט',
+    managerPin: '1234',
+    alcohol: ['בירה', 'יין', 'וודקה', 'ויסקי', 'ערק', 'עראק', 'טקילה', 'רום', "ג'ין", 'ליקרים', 'שמפניה ויין מבעבע', 'סיידר אלכוהולי', 'קוקטיילים מוכנים ומשקאות אנרגיה עם אלכוהול', 'כל משקה שמכיל אלכוהול'],
+    smoking: ['סיגריות', 'סיגרים וסיגריילות', 'טבק לגלגול', 'נייר גלגול ופילטרים', 'טבק לנרגילה (מעסל)', 'סיגריות אלקטרוניות', 'נוזלי מילוי ומחסניות', 'מוצרי טבק מחומם (כגון IQOS)', 'מוצרי עישון צמחיים'],
+    rules: [
+      'יש לבקש תעודה מכל לקוח שנראה צעיר. אם יש ספק – מבקשים תעודה.',
+      'מתקבלות רק תעודת זהות או דרכון – מקוריים ובתוקף. לא מקבלים צילום או תמונה בטלפון, לא חוגר, לא רישיון נהיגה ולא שום מסמך אחר.',
+      'לקוח שלא מציג תעודת זהות או דרכון מקוריים ובתוקף – לא מוכרים לו, גם אם הוא טוען שהוא מעל 18.',
+      'משווים את תאריך הלידה בתעודה ל"תאריך הקובע" שבחלון האדום: נולד בתאריך הזה או לפניו – מותר. נולד אחריו – אסור.',
+      'מוודאים שהתמונה בתעודה תואמת ללקוח.',
+      'אין למכור לבגיר כשברור שהמוצר מיועד לקטין שנמצא איתו.',
+      'מכירת אלכוהול בחנות אסורה בין השעות 23:00 ל-06:00.',
+      'בכל מקרה של ספק, לחץ או ויכוח עם לקוח – לא מוכרים ומתקשרים למנהל.'
+    ],
+    shiftTypes: [
+      { id: 'm', name: 'בוקר', start: '07:00', end: '15:00', need: [1, 1, 1, 1, 2, 2, 1] },
+      { id: 'e', name: 'ערב', start: '15:00', end: '23:00', need: [1, 1, 1, 1, 2, 1, 1] }
+    ],
+    hours: [0, 1, 2, 3, 4, 5, 6].map(() => ({ open: '07:00', close: '23:00', closed: false })),
+    bizType: 'מיני מרקט', address: '', managerName: '', bizId: '', phone: '', setupDone: false,
+    email: '', autoSend: false, ejService: '', ejTemplate: '', ejKey: '', lastSentMonth: ''
+  };
+
+  // ---------- storage ----------
+  function load() {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+    if (!d || !d.employees) d = { settings: {}, employees: [], shifts: [] };
+    d.settings = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), d.settings);
+    d.schedules = d.schedules || {};
+    return d;
+  }
+  let db = load();
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(db)); }
+    catch (e) { alert('שגיאה בשמירת הנתונים! מומלץ להוריד גיבוי מיד.'); }
+  }
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const S = () => db.settings;
+
+  // ---------- helpers ----------
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, '0');
+  const fmtDate = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  const fmtTime = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const isoDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const monthKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+  const monthName = mk => { const [y, m] = mk.split('-'); return `${MONTHS[+m - 1]} ${y}`; };
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const hours = s => s.end ? (new Date(s.end) - new Date(s.start)) / 36e5 : 0;
+  const fmtH = h => { const t = Math.round(h * 60); return `${Math.floor(t / 60)}:${pad(t % 60)}`; };
+  const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+  const splitList = s => s.split(/[,\n،]/).map(x => x.trim()).filter(Boolean);
+
+  // Latest birth date of a person who is 18 or older today
+  function cutoffDate(today) {
+    const y = today.getFullYear() - 18, m = today.getMonth(), d = today.getDate();
+    const c = new Date(y, m, d);
+    if (c.getMonth() !== m) return new Date(y, m + 1, 0); // 29/2 on a non-leap year
+    return c;
+  }
+
+  // ---------- views ----------
+  const views = ['viewHome', 'viewGuidelines', 'viewClockOut', 'viewManager'];
+  function show(v) { views.forEach(x => $(x).classList.toggle('hidden', x !== v)); window.scrollTo(0, 0); }
+
+  let bannerKey = '';
+  function renderBanner() {
+    const now = new Date();
+    const nightBan = now.getHours() >= 23 || now.getHours() < 6;
+    const key = now.toDateString() + nightBan;
+    if (key === bannerKey) return;
+    bannerKey = key;
+    const cut = cutoffDate(now);
+    const after = new Date(cut); after.setDate(after.getDate() + 1);
+    $('ageBanner').innerHTML = `
+      <h2>⚠️ אין מכירת אלכוהול ומוצרי עישון מתחת לגיל 18</h2>
+      <div class="today">היום: יום ${DAYS[now.getDay()]}, <b>${fmtDate(now)}</b></div>
+      <div class="cutoff">מותר למכור רק למי שנולד בתאריך הזה או לפניו:<b>${fmtDate(cut)}</b></div>
+      <div class="examples">
+        <div class="ex yes">✅ מותר למכור – לדוגמה נולד ב-<b>${fmtDate(cut)}</b>(בן 18 בדיוק היום) או בכל תאריך מוקדם יותר</div>
+        <div class="ex no">⛔ אסור למכור – לדוגמה נולד ב-<b>${fmtDate(after)}</b>או בכל תאריך מאוחר יותר</div>
+      </div>
+      ${nightBan ? '<div class="night">🌙 עכשיו בין 23:00 ל-06:00 – אסור למכור אלכוהול לאף אחד!</div>' : ''}
+      <div class="idbox">
+        <div class="ok-id">🪪 מתקבלים רק: <b>תעודת זהות</b> או <b>דרכון</b> – מקוריים ובתוקף</div>
+        <div class="no-id">🚫 לא מתקבלים: צילום / תמונה בטלפון · חוגר · רישיון נהיגה · כל מסמך אחר</div>
+      </div>
+      <div class="foot">אין תעודה מתאימה = אין מכירה</div>`;
+  }
+
+  let lastAutoCheck = 0;
+  function tick() {
+    const now = new Date();
+    $('clock').textContent = `${fmtTime(now)}:${pad(now.getSeconds())}`;
+    renderBanner();
+    if (Date.now() - lastAutoCheck > 10 * 60 * 1000) { lastAutoCheck = Date.now(); autoSendCheck(); }
+  }
+
+  function renderHome() {
+    $('storeTitle').textContent = S().storeName;
+    const open = db.shifts.filter(s => !s.end);
+    $('onShift').innerHTML = open.length
+      ? '<p class="muted" style="margin-bottom:4px">כרגע במשמרת:</p>' + open.map(s => `<span>${esc(s.empName)} · מ-${fmtTime(new Date(s.start))}</span>`).join('')
+      : '';
+  }
+
+  // ---------- keypad / PIN ----------
+  let pin = '', current = null, msgTimer;
+  function setPin(v) {
+    pin = v;
+    $('pinDisplay').textContent = '●'.repeat(pin.length) + '○'.repeat(4 - pin.length);
+    if (pin.length === 4) setTimeout(submitPin, 150);
+  }
+  function homeMsg(t, cls) {
+    $('homeMsg').textContent = t; $('homeMsg').className = 'msg ' + (cls || '');
+    clearTimeout(msgTimer); if (t) msgTimer = setTimeout(() => homeMsg(''), 8000);
+  }
+  ['1','2','3','4','5','6','7','8','9','C','0','⌫'].forEach(k => {
+    const b = document.createElement('button');
+    b.textContent = k;
+    b.onclick = () => {
+      if (k === '⌫') return setPin(pin.slice(0, -1));
+      if (k === 'C') return setPin('');
+      if (pin.length < 4) setPin(pin + k);
+    };
+    $('keypad').appendChild(b);
+  });
+  document.addEventListener('keydown', e => {
+    if ($('viewHome').classList.contains('hidden') || document.querySelector('dialog[open]')) return;
+    if (/^\d$/.test(e.key) && pin.length < 4) setPin(pin + e.key);
+    else if (e.key === 'Backspace') setPin(pin.slice(0, -1));
+  });
+
+  function submitPin() {
+    if (pin.length !== 4) return;
+    const emp = db.employees.find(e => e.active && e.pin === pin);
+    setPin('');
+    if (!emp) return homeMsg('קוד שגוי', 'err');
+    homeMsg('');
+    current = emp;
+    const open = db.shifts.find(s => s.empId === emp.id && !s.end);
+    if (open) {
+      $('oName').textContent = emp.name;
+      $('oSince').textContent = `במשמרת מאז ${fmtDate(new Date(open.start))} בשעה ${fmtTime(new Date(open.start))}`;
+      show('viewClockOut');
+    } else {
+      $('gName').textContent = emp.name;
+      $('gAlc').innerHTML = S().alcohol.map(x => `<span class="chip">${esc(x)}</span>`).join('');
+      $('gSmk').innerHTML = S().smoking.map(x => `<span class="chip">${esc(x)}</span>`).join('');
+      $('gRules').innerHTML = S().rules.map(g => `<li>${esc(g)}</li>`).join('');
+      ['chk1', 'chk2'].forEach(c => { $(c).checked = false; });
+      updateClockInBtn();
+      show('viewGuidelines');
+    }
+  }
+
+  function updateClockInBtn() {
+    ['chk1', 'chk2'].forEach(c => $(c + 'Wrap').classList.toggle('on', $(c).checked));
+    $('btnClockIn').disabled = !($('chk1').checked && $('chk2').checked);
+  }
+  $('chk1').onchange = $('chk2').onchange = updateClockInBtn;
+
+  $('btnClockIn').onclick = () => {
+    const now = new Date().toISOString();
+    db.shifts.push({
+      id: uid(), empId: current.id, empName: current.name, start: now, end: null,
+      ack: { time: now, understood: true, committedToCheckId: true,
+             alcohol: S().alcohol.slice(), smoking: S().smoking.slice(), rules: S().rules.slice() }
+    });
+    save();
+    homeMsg(`${current.name} – נכנסת למשמרת בשעה ${fmtTime(new Date())}. משמרת טובה!`, 'good');
+    current = null; renderHome(); show('viewHome');
+  };
+  $('btnClockOut').onclick = () => {
+    const s = db.shifts.find(s => s.empId === current.id && !s.end);
+    if (s) { s.end = new Date().toISOString(); save(); homeMsg(`${current.name} – יצאת מהמשמרת (${fmtH(hours(s))} שעות). תודה!`, 'good'); }
+    current = null; renderHome(); show('viewHome');
+  };
+  $('btnCancelIn').onclick = $('btnCancelOut').onclick = () => { current = null; show('viewHome'); };
+
+  // ---------- toolbar navigation & manager lock ----------
+  const TITLES = { log: '📋 יומן משמרות', summary: '📊 סיכום חודשי', emps: '👥 עובדים', sched: '📅 סידור עבודה', settings: '⚙️ הגדרות' };
+  let unlocked = false, pendingNav = null, mgrPin = '', idleTimer = null;
+  $('nav').onclick = e => { const b = e.target.closest('[data-nav]'); if (b) nav(b.dataset.nav); };
+  function nav(tab) {
+    if (tab === 'home') return lock();
+    if (!unlocked) { pendingNav = tab; mgrSet(''); $('mgrMsg').textContent = ''; $('mgrDlg').showModal(); return; }
+    openScreen(tab);
+  }
+  function openScreen(tab) {
+    const mk = monthKey(new Date());
+    if (!$('logMonth').value) $('logMonth').value = mk;
+    if (!$('sumMonth').value) $('sumMonth').value = mk;
+    current = null;
+    renderAll(); if (tab === 'settings') renderSettings();
+    document.querySelectorAll('[data-pane]').forEach(p => p.classList.toggle('hidden', p.dataset.pane !== tab));
+    $('paneTitle').textContent = TITLES[tab];
+    show('viewManager'); setActiveNav(tab);
+    $('btnLock').classList.remove('hidden'); resetIdle();
+  }
+  function lock() {
+    unlocked = false; current = null; clearTimeout(idleTimer);
+    $('btnLock').classList.add('hidden');
+    document.querySelectorAll('dialog[open]').forEach(d => { if (d.id !== 'setupDlg') d.close(); });
+    renderHome(); show('viewHome'); setActiveNav('home');
+  }
+  function setActiveNav(tab) { document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.nav === tab)); }
+  function resetIdle() { clearTimeout(idleTimer); if (unlocked) idleTimer = setTimeout(lock, 5 * 60 * 1000); } // auto-lock after 5 idle minutes
+  ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, resetIdle, true));
+  $('btnLock').onclick = lock;
+
+  function mgrSet(v) {
+    mgrPin = v;
+    $('mgrPinDisplay').textContent = '●'.repeat(v.length) + '○'.repeat(4 - v.length);
+    if (v.length === 4) setTimeout(mgrSubmit, 150);
+  }
+  function mgrSubmit() {
+    if (mgrPin.length !== 4) return;
+    if (mgrPin === S().managerPin) { unlocked = true; $('mgrDlg').close(); mgrSet(''); openScreen(pendingNav); }
+    else { $('mgrMsg').textContent = 'קוד שגוי'; mgrSet(''); }
+  }
+  ['1','2','3','4','5','6','7','8','9','C','0','⌫'].forEach(k => {
+    const b = document.createElement('button'); b.textContent = k;
+    b.onclick = () => { if (k === '⌫') mgrSet(mgrPin.slice(0, -1)); else if (k === 'C') mgrSet(''); else if (mgrPin.length < 4) mgrSet(mgrPin + k); };
+    $('mgrKeypad').appendChild(b);
+  });
+  $('mgrCancel').onclick = () => $('mgrDlg').close();
+  document.addEventListener('keydown', e => {
+    if (!$('mgrDlg').open) return;
+    if (/^\d$/.test(e.key) && mgrPin.length < 4) mgrSet(mgrPin + e.key);
+    else if (e.key === 'Backspace') mgrSet(mgrPin.slice(0, -1));
+  });
+
+  function renderAll() { renderLog(); renderSummary(); renderEmps(); renderHome(); renderSchedAll(); refreshDocCounts(); }
+  // ----- shift log -----
+  function filteredShifts() {
+    const m = $('logMonth').value, e = $('logEmp').value;
+    return db.shifts.filter(s => (!m || monthKey(new Date(s.start)) === m) && (!e || s.empId === e))
+                    .sort((a, b) => b.start.localeCompare(a.start));
+  }
+  function empOptions(sel, withAll) {
+    const prev = sel.value;
+    sel.innerHTML = (withAll ? '<option value="">כל העובדים</option>' : '') +
+      db.employees.map(e => `<option value="${e.id}">${esc(e.name)}${e.active ? '' : ' (לא פעיל)'}</option>`).join('');
+    if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+  }
+  function renderLog() {
+    empOptions($('logEmp'), true);
+    const rows = filteredShifts();
+    $('logBody').innerHTML = rows.map(s => {
+      const st = new Date(s.start), en = s.end && new Date(s.end);
+      const outTxt = en ? (isoDate(en) === isoDate(st) ? fmtTime(en) : fmtDate(en) + ' ' + fmtTime(en)) : '<b style="color:var(--ok)">במשמרת</b>';
+      const ack = s.ack ? `✅ ${fmtTime(new Date(s.ack.time))}` : '<span class="muted">—</span>';
+      const tags = (s.manual ? '<br><span class="tag">נוספה ידנית ע״י מנהל</span>' : '') +
+                   (s.edits && s.edits.length ? `<br><span class="tag blue" title="${esc(editHistory(s))}">תוקנה ע״י מנהל (${s.edits.length})</span>` : '') +
+                   (s.note ? `<br><span class="muted" style="font-size:14px">${esc(s.note)}</span>` : '');
+      return `<tr>
+        <td>${esc(s.empName)}${tags}</td><td>${fmtDate(st)}</td><td>${fmtTime(st)}</td><td>${outTxt}</td>
+        <td>${en ? fmtH(hours(s)) : '–'}</td><td>${ack}</td>
+        <td><button class="small secondary" data-edit="${s.id}">עריכה</button></td></tr>`;
+    }).join('') || '<tr><td colspan="7" class="muted">אין משמרות</td></tr>';
+  }
+  function editHistory(s) {
+    return (s.edits || []).map(e => `${fmtDate(new Date(e.at))} ${fmtTime(new Date(e.at))}: היה ${fmtDate(new Date(e.before.start))} ${fmtTime(new Date(e.before.start))}–${e.before.end ? fmtTime(new Date(e.before.end)) : 'פתוחה'}`).join('\n');
+  }
+  $('logMonth').onchange = $('logEmp').onchange = renderLog;
+  $('logBody').onclick = e => { if (e.target.dataset.edit) openShiftDlg(db.shifts.find(s => s.id === e.target.dataset.edit)); };
+  $('btnAddShift').onclick = () => {
+    if (!db.employees.length) return alert('יש להוסיף עובדים קודם');
+    openShiftDlg(null);
+  };
+
+  // ----- shift dialog -----
+  let editing = null;
+  function openShiftDlg(s) {
+    editing = s;
+    empOptions($('dlgEmp'), false);
+    $('dlgTitle').textContent = s ? 'עריכת משמרת' : 'הוספת משמרת ידנית';
+    $('dlgDelete').classList.toggle('hidden', !s);
+    $('dlgMsg').textContent = '';
+    if (s) {
+      const st = new Date(s.start);
+      $('dlgEmp').value = s.empId; $('dlgDate').value = isoDate(st); $('dlgIn').value = fmtTime(st);
+      $('dlgOut').value = s.end ? fmtTime(new Date(s.end)) : ''; $('dlgNote').value = s.note || '';
+    } else {
+      $('dlgEmp').value = $('logEmp').value || db.employees[0].id;
+      $('dlgDate').value = isoDate(new Date()); $('dlgIn').value = ''; $('dlgOut').value = ''; $('dlgNote').value = '';
+    }
+    $('shiftDlg').showModal();
+  }
+  $('dlgCancel').onclick = () => $('shiftDlg').close();
+  $('dlgSave').onclick = () => {
+    const empId = $('dlgEmp').value, d = $('dlgDate').value, tin = $('dlgIn').value, tout = $('dlgOut').value;
+    if (!empId || !d || !tin) return ($('dlgMsg').textContent = 'יש למלא עובד, תאריך ושעת כניסה');
+    const [y, mo, da] = d.split('-').map(Number);
+    const start = new Date(y, mo - 1, da, ...tin.split(':').map(Number));
+    let end = null;
+    if (tout) {
+      end = new Date(y, mo - 1, da, ...tout.split(':').map(Number));
+      if (end <= start) end.setDate(end.getDate() + 1);
+      if ((end - start) / 36e5 > 16 && !confirm(`המשמרת ארוכה מאוד (${fmtH((end - start) / 36e5)} שעות). לשמור בכל זאת?`)) return;
+    }
+    if (end && end > new Date()) return ($('dlgMsg').textContent = 'שעת היציאה היא בעתיד');
+    const others = db.shifts.filter(x => x.empId === empId && x !== editing);
+    if (!end && others.some(x => !x.end)) return ($('dlgMsg').textContent = 'לעובד כבר יש משמרת פתוחה');
+    const overlap = others.find(x => start < (x.end ? new Date(x.end) : new Date()) && (end || new Date()) > new Date(x.start));
+    if (overlap) return ($('dlgMsg').textContent = `חפיפה עם משמרת קיימת ב-${fmtDate(new Date(overlap.start))} ${fmtTime(new Date(overlap.start))}`);
+    const emp = db.employees.find(e => e.id === empId);
+    const note = $('dlgNote').value.trim();
+    if (editing) {
+      editing.edits = editing.edits || [];
+      editing.edits.push({ at: new Date().toISOString(), before: { start: editing.start, end: editing.end, empId: editing.empId }, note });
+      Object.assign(editing, { empId, empName: emp.name, start: start.toISOString(), end: end && end.toISOString(), note });
+    } else {
+      db.shifts.push({ id: uid(), empId, empName: emp.name, start: start.toISOString(), end: end && end.toISOString(),
+                       ack: null, manual: true, createdAt: new Date().toISOString(), note });
+    }
+    save(); $('shiftDlg').close(); renderAll();
+  };
+  $('dlgDelete').onclick = () => {
+    if (!confirm(`למחוק את המשמרת של ${editing.empName} מ-${fmtDate(new Date(editing.start))}?`)) return;
+    db.deleted = db.deleted || [];
+    db.deleted.push(Object.assign({}, editing, { deletedAt: new Date().toISOString() })); // kept for audit
+    db.shifts = db.shifts.filter(s => s !== editing);
+    save(); $('shiftDlg').close(); renderAll();
+  };
+
+  // ----- CSV -----
+  function csvCell(v) { return `"${String(v).replace(/"/g, '""')}"`; }
+  $('btnCsv').onclick = () => {
+    const head = ['עובד', 'תאריך', 'כניסה', 'יציאה', 'שעות', 'אישור הנחיות', 'הוספה/תיקון ידני', 'הערה'];
+    const lines = filteredShifts().reverse().map(s => {
+      const st = new Date(s.start), en = s.end && new Date(s.end);
+      return [s.empName, fmtDate(st), fmtTime(st), en ? fmtDate(en) + ' ' + fmtTime(en) : 'פתוחה', en ? hours(s).toFixed(2) : '',
+              s.ack ? fmtDate(new Date(s.ack.time)) + ' ' + fmtTime(new Date(s.ack.time)) : '',
+              s.manual ? 'נוספה ידנית' : (s.edits && s.edits.length ? 'תוקנה' : ''), s.note || ''].map(csvCell).join(',');
+    });
+    download('﻿' + [head.join(','), ...lines].join('\r\n'), `נוכחות-${$('logMonth').value || 'הכל'}.csv`, 'text/csv');
+  };
+
+  // ----- monthly summary -----
+  function summarize(mk) {
+    const map = {};
+    const inMonth = db.shifts.filter(s => monthKey(new Date(s.start)) === mk);
+    inMonth.filter(s => s.end).forEach(s => {
+      map[s.empId] = map[s.empId] || { name: s.empName, n: 0, h: 0 };
+      map[s.empId].n++; map[s.empId].h += hours(s);
+    });
+    const rows = Object.values(map).sort((a, b) => a.name.localeCompare(b.name, 'he'));
+    return { rows, total: rows.reduce((a, r) => a + r.h, 0), open: inMonth.filter(s => !s.end), manual: inMonth.filter(s => s.manual || (s.edits && s.edits.length)).length };
+  }
+  function renderSummary() {
+    const sm = summarize($('sumMonth').value);
+    $('sumBody').innerHTML = sm.rows.map(r => `<tr><td>${esc(r.name)}</td><td>${r.n}</td><td>${fmtH(r.h)} <span class="muted">(${r.h.toFixed(2)})</span></td></tr>`).join('') +
+      (sm.rows.length ? `<tr><th>סה״כ</th><th>${sm.rows.reduce((a, r) => a + r.n, 0)}</th><th>${fmtH(sm.total)} <span class="muted">(${sm.total.toFixed(2)})</span></th></tr>`
+                      : '<tr><td colspan="3" class="muted">אין משמרות בחודש זה</td></tr>');
+    $('sumOpenWarn').textContent = sm.open.length ? `⚠️ יש ${sm.open.length} משמרות פתוחות בחודש זה שאינן נספרות בסיכום: ${sm.open.map(s => s.empName).join(', ')}` : '';
+  }
+  $('sumMonth').onchange = renderSummary;
+
+  function summaryText(mk) {
+    const sm = summarize(mk);
+    let t = `סיכום שעות עבודה – ${S().storeName} – ${monthName(mk)}\n`;
+    t += [S().bizType, S().address, S().bizId && `ח.פ./ע.מ. ${S().bizId}`, S().managerName && `מנהל: ${S().managerName}`, S().phone && `טל׳ ${S().phone}`].filter(Boolean).join(' | ') + '\n\n';
+    if (!sm.rows.length) t += 'לא נרשמו משמרות בחודש זה.\n';
+    sm.rows.forEach(r => { t += `${r.name}: ${fmtH(r.h)} שעות (${r.h.toFixed(2)}), ${r.n} משמרות\n`; });
+    if (sm.rows.length) t += `\nסה"כ: ${fmtH(sm.total)} שעות (${sm.total.toFixed(2)})\n`;
+    if (sm.open.length) t += `\n⚠️ משמרות פתוחות שלא נספרו: ${sm.open.map(s => `${s.empName} (${fmtDate(new Date(s.start))})`).join(', ')}\n`;
+    if (sm.manual) t += `\nℹ️ ${sm.manual} משמרות נוספו או תוקנו ידנית על ידי מנהל.\n`;
+    t += `\nפירוט משמרות:\n`;
+    db.shifts.filter(s => monthKey(new Date(s.start)) === mk).sort((a, b) => a.start.localeCompare(b.start)).forEach(s => {
+      const st = new Date(s.start), en = s.end && new Date(s.end);
+      t += `${fmtDate(st)}  ${s.empName}  ${fmtTime(st)}–${en ? fmtTime(en) : 'פתוחה'}  ${en ? fmtH(hours(s)) : ''}${s.manual ? '  (ידני)' : ''}\n`;
+    });
+    return t;
+  }
+  const ejReady = () => S().email && S().ejService && S().ejTemplate && S().ejKey;
+  async function sendEmailJS(subject, message) {
+    const r = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ service_id: S().ejService, template_id: S().ejTemplate, user_id: S().ejKey,
+                             template_params: { to_email: S().email, subject, message } })
+    });
+    if (!r.ok) throw new Error(await r.text());
+  }
+  function sumMsg(t, cls) { $('sumMsg').textContent = t; $('sumMsg').className = 'msg ' + (cls || ''); }
+  $('btnSendNow').onclick = async () => {
+    const mk = $('sumMonth').value;
+    if (!S().email) return sumMsg('יש להגדיר כתובת מייל בלשונית "הגדרות"', 'err');
+    const subject = `סיכום שעות – ${S().storeName} – ${monthName(mk)}`, body = summaryText(mk);
+    if (ejReady()) {
+      sumMsg('שולח...');
+      try { await sendEmailJS(subject, body); sumMsg(`הסיכום נשלח אל ${S().email}`, 'good'); }
+      catch (e) { sumMsg('השליחה נכשלה: ' + e.message, 'err'); }
+    } else {
+      location.href = `mailto:${encodeURIComponent(S().email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      sumMsg('נפתחה אפליקציית המייל – יש ללחוץ "שלח" בה', 'good');
+    }
+  };
+  // Automatic: on/after the 1st of a month, send the previous month once
+  async function autoSendCheck() {
+    if (!S().autoSend || !ejReady()) return;
+    const now = new Date(), prev = monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    if (S().lastSentMonth >= prev) return;
+    if (db.shifts.some(s => !s.end && monthKey(new Date(s.start)) === prev) && now.getDate() === 1 && now.getHours() < 12) return; // let night shifts close first
+    try {
+      await sendEmailJS(`סיכום שעות – ${S().storeName} – ${monthName(prev)}`, summaryText(prev));
+      S().lastSentMonth = prev; S().lastSentAt = now.toISOString(); save();
+    } catch (e) { console.warn('auto email failed', e); }
+  }
+
+  // ----- documents storage (IndexedDB: photos & files are too big for localStorage) -----
+  const DOC_TYPES = ['צילום תעודת זהות', 'חוזה עבודה', 'טופס 101', 'ספח / אישור תושבות', 'פרטי חשבון בנק', 'אישור הורים (עובד נוער)', 'אחר'];
+  let idbP = null;
+  function idb() {
+    if (!idbP) idbP = new Promise((res, rej) => {
+      const r = indexedDB.open('minimarket_docs', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('docs', { keyPath: 'id' });
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+    return idbP;
+  }
+  async function docsOp(mode, fn) {
+    const d = await idb();
+    return new Promise((res, rej) => {
+      const tx = d.transaction('docs', mode), req = fn(tx.objectStore('docs'));
+      tx.oncomplete = () => res(req && req.result); tx.onerror = () => rej(tx.error);
+    });
+  }
+  const docPut = doc => docsOp('readwrite', st => st.put(doc));
+  const docDel = id => docsOp('readwrite', st => st.delete(id));
+  const docAll = () => docsOp('readonly', st => st.getAll());
+  const docsOf = async empId => (await docAll()).filter(x => x.empId === empId).sort((a, b) => a.addedAt.localeCompare(b.addedAt));
+  let docCounts = {};
+  async function refreshDocCounts() {
+    const c = {};
+    try { (await docAll()).forEach(x => { c[x.empId] = (c[x.empId] || 0) + 1; }); } catch (e) {}
+    docCounts = c; renderEmps();
+  }
+  async function shrinkImage(file) {
+    if (!file.type.startsWith('image/')) return file;
+    try {
+      const bmp = await createImageBitmap(file);
+      const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      return await new Promise(r => c.toBlob(b => r(b || file), 'image/jpeg', 0.85));
+    } catch (e) { return file; }
+  }
+
+  // ----- employees -----
+  function validIsraeliId(v) {
+    if (!/^\d{5,9}$/.test(v)) return false;
+    const s = v.padStart(9, '0'); let sum = 0;
+    for (let i = 0; i < 9; i++) { const n = +s[i] * (i % 2 + 1); sum += n > 9 ? n - 9 : n; }
+    return sum % 10 === 0;
+  }
+  function ageOf(birth) {
+    if (!birth) return null;
+    const b = new Date(birth + 'T00:00'), t = new Date();
+    let a = t.getFullYear() - b.getFullYear();
+    if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) a--;
+    return a;
+  }
+  const isYouth = e => { const a = ageOf(e.birthDate); return a !== null && a < 18; };
+  function waNumber(p) {
+    let d = (p || '').replace(/\D/g, '');
+    if (d.startsWith('00')) d = d.slice(2);
+    if (d.startsWith('0')) d = '972' + d.slice(1);
+    return d.length >= 11 && d.length <= 13 ? d : '';
+  }
+  const empById = id => db.employees.find(e => e.id === id);
+  function empMsg(t, cls) { $('empMsg').textContent = t; $('empMsg').className = 'msg ' + (cls || ''); }
+  function pinErr(p, exceptId) {
+    if (!/^\d{4}$/.test(p)) return 'הקוד חייב להיות בדיוק 4 ספרות';
+    if (db.employees.some(e => e.pin === p && e.id !== exceptId)) return 'הקוד כבר בשימוש אצל עובד אחר';
+    return '';
+  }
+  function renderEmps() {
+    const q = ($('empSearch').value || '').trim();
+    const list = db.employees.filter(e => !q || [e.name, e.phone, e.idNumber].some(v => (v || '').includes(q)));
+    $('empBody').innerHTML = list.map(e => { const a = ageOf(e.birthDate); return `<tr>
+      <td><b>${esc(e.name)}</b></td>
+      <td>${a === null ? '–' : a}${a !== null && a < 18 ? ' <span class="tag">נוער</span>' : ''}</td>
+      <td dir="ltr" style="text-align:right">${esc(e.phone || '–')}</td><td>${esc(e.idNumber || '–')}</td>
+      <td>${docCounts[e.id] ? '📎 ' + docCounts[e.id] : '–'}</td>
+      <td>${e.active ? 'פעיל' : '<span class="muted">לא פעיל</span>'}</td>
+      <td><button class="small" data-open="${e.id}">פרטים</button></td></tr>`; }).join('')
+      || `<tr><td colspan="7" class="muted">${q ? 'לא נמצאו עובדים' : 'עדיין לא הוגדרו עובדים'}</td></tr>`;
+  }
+  $('empSearch').oninput = renderEmps;
+  $('empBody').onclick = e => { const id = e.target.dataset.open; if (id) openEmpDlg(empById(id)); };
+  $('btnNewEmp').onclick = () => openEmpDlg(null);
+
+  let edEmp = null;
+  $('edDocType').innerHTML = DOC_TYPES.map(t => `<option>${t}</option>`).join('');
+  function fillEmpDlg(e) {
+    $('edTitle').textContent = e ? `כרטיס עובד – ${e.name}` : 'עובד חדש';
+    const v = (id, x) => { $(id).value = x == null ? '' : x; };
+    v('edName', e && e.name); v('edPin', e && e.pin); v('edIdNum', e && e.idNumber); v('edBirth', e && e.birthDate);
+    v('edPhone', e && e.phone); v('edEmail', e && e.email); v('edAddress', e && e.address); v('edStart', e && e.startDate);
+    v('edWage', e && e.wage); v('edMax', e ? (e.maxShifts ?? 6) : 6); v('edNotes', e && e.notes);
+    $('edActive').checked = e ? e.active : true;
+    $('edDelete').classList.toggle('hidden', !e);
+    $('edDocsWrap').classList.toggle('hidden', !e);
+    $('edMsg').textContent = ''; showAge();
+    if (e) renderDocs();
+  }
+  function showAge() {
+    const a = ageOf($('edBirth').value);
+    $('edAge').innerHTML = a === null ? '' : `(גיל ${a}${a < 18 ? ' – <b style="color:var(--danger)">עובד נוער</b>' : ''})`;
+  }
+  $('edBirth').oninput = showAge;
+  function openEmpDlg(e) { edEmp = e; fillEmpDlg(e); $('empDlg').showModal(); }
+  $('edClose').onclick = () => $('empDlg').close();
+  $('edSave').onclick = () => {
+    const err = t => { $('edMsg').textContent = t; };
+    const name = $('edName').value.trim(), p = $('edPin').value.trim(), idn = $('edIdNum').value.trim(), phone = $('edPhone').value.trim();
+    if (!name) return err('יש להזין שם');
+    const pe = pinErr(p, edEmp && edEmp.id); if (pe) return err(pe);
+    if (idn && !validIsraeliId(idn)) return err('מספר תעודת הזהות לא תקין (ספרת ביקורת שגויה)');
+    if (phone && !waNumber(phone)) return err('מספר הטלפון לא תקין');
+    const data = { name, pin: p, idNumber: idn, birthDate: $('edBirth').value, phone, email: $('edEmail').value.trim(),
+      address: $('edAddress').value.trim(), startDate: $('edStart').value, wage: $('edWage').value ? +$('edWage').value : null,
+      maxShifts: $('edMax').value === '' ? 6 : +$('edMax').value, notes: $('edNotes').value.trim(), active: $('edActive').checked };
+    const isNew = !edEmp;
+    if (edEmp) {
+      if (!data.active && db.shifts.some(s => s.empId === edEmp.id && !s.end)) return err('העובד נמצא כרגע במשמרת – אי אפשר להשבית אותו');
+      if (edEmp.name !== name) db.shifts.forEach(s => { if (s.empId === edEmp.id) s.empName = name; });
+      Object.assign(edEmp, data);
+    } else {
+      edEmp = Object.assign({ id: uid() }, data); db.employees.push(edEmp);
+    }
+    save(); renderAll(); fillEmpDlg(edEmp);
+    $('edMsg').innerHTML = `<span style="color:var(--ok)">נשמר ✓${isNew ? ' – עכשיו אפשר להוסיף מסמכים' : ''}</span>`;
+  };
+  $('edDelete').onclick = async () => {
+    const emp = edEmp;
+    if (db.shifts.some(s => s.empId === emp.id && !s.end)) return alert(`${emp.name} נמצא/ת כרגע במשמרת. יש להוציא אותו/ה מהמשמרת לפני המחיקה.`);
+    const n = db.shifts.filter(s => s.empId === emp.id).length;
+    if (!confirm(`למחוק את ${emp.name}?\n\nכל הפרטים האישיים והמסמכים יימחקו.` + (n ? ` ${n} המשמרות שלו/ה יישארו ביומן ובסיכום.` : '') +
+                 `\n\nלעובד שעזב מומלץ לבטל את הסימון "עובד פעיל" במקום למחוק, כדי לשמור את החוזה והמסמכים.`)) return;
+    try { for (const d of await docsOf(emp.id)) await docDel(d.id); } catch (e) {}
+    db.employees = db.employees.filter(x => x !== emp);
+    Object.values(db.schedules).forEach(w => Object.values(w.assign || {}).forEach(a => { const i = a.indexOf(emp.id); if (i >= 0) a.splice(i, 1); }));
+    save(); $('empDlg').close(); renderAll(); empMsg(`${emp.name} נמחק/ה`, 'good');
+  };
+
+  const docUrls = [];
+  async function renderDocs() {
+    docUrls.splice(0).forEach(u => URL.revokeObjectURL(u));
+    let docs = [];
+    try { docs = await docsOf(edEmp.id); } catch (e) { $('edDocs').innerHTML = '<p class="msg err">אחסון המסמכים לא זמין בדפדפן זה</p>'; return; }
+    $('edDocs').innerHTML = docs.map(d => {
+      const u = URL.createObjectURL(d.blob); docUrls.push(u);
+      const ext = d.mime === 'application/pdf' ? '.pdf' : '.jpg';
+      return `<div class="doc"><a href="${u}" target="_blank" rel="noopener">${d.mime.startsWith('image/') ? `<img src="${u}" alt="">` : '<div class="pdf">📄 PDF</div>'}</a>
+        <div><b>${esc(d.type)}</b><br><span class="muted" style="font-size:13px">נוסף ${fmtDate(new Date(d.addedAt))}</span></div>
+        <div><a href="${u}" download="${esc(edEmp.name)} - ${esc(d.type)}${ext}">הורדה</a> · <button class="small danger" data-deldoc="${d.id}">מחיקה</button></div></div>`;
+    }).join('') || '<p class="muted">אין מסמכים עדיין</p>';
+  }
+  $('edDocPick').onclick = () => $('edDocFile').click();
+  $('edDocFile').onchange = async e => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f || !edEmp) return;
+    if (f.size > 15e6) return alert('הקובץ גדול מדי (מקסימום 15MB)');
+    const blob = await shrinkImage(f);
+    try { await docPut({ id: uid(), empId: edEmp.id, type: $('edDocType').value, name: f.name, mime: blob.type || f.type, blob, addedAt: new Date().toISOString() }); }
+    catch (err) { return alert('שמירת המסמך נכשלה: ' + err.message); }
+    renderDocs(); refreshDocCounts();
+  };
+  $('edDocs').onclick = async e => {
+    const id = e.target.dataset.deldoc;
+    if (!id || !confirm('למחוק את המסמך?')) return;
+    await docDel(id); renderDocs(); refreshDocCounts();
+  };
+
+  // ----- opening hours & shift editors (shared by the setup wizard and the schedule screen) -----
+  const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const fromMin = m => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
+  const DAY_SHORT = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+  const needOf = (t, d) => (S().hours[d].closed || !clipShift(t, S().hours[d]) ? 0 : (t.need[d] || 0));
+  const newShift = () => ({ id: uid(), name: 'משמרת', start: '12:00', end: '18:00', need: [0, 0, 0, 0, 0, 0, 0] });
+  // The shift's hours on a given day, cut to that day's opening hours (null = no overlap)
+  function clipShift(t, h) {
+    let o = toMin(h.open), c = toMin(h.close); if (c <= o) c += 1440;
+    let st = toMin(t.start), en = toMin(t.end); if (en <= st) en += 1440;
+    if (en <= o) { st += 1440; en += 1440; } // shift after midnight
+    const a = Math.max(st, o), z = Math.min(en, c);
+    return z > a ? { start: fromMin(a), end: fromMin(z) } : null;
+  }
+  function shiftWarnings(types, hours) {
+    const warn = [], info = [];
+    types.forEach(t => DAYS.forEach((dn, d) => {
+      if (hours[d].closed || !(t.need[d] || 0)) return;
+      const c = clipShift(t, hours[d]);
+      if (!c) warn.push(`משמרת ${t.name} (${t.start}–${t.end}) ביום ${dn} נמצאת מחוץ לשעות הפעילות (${hours[d].open}–${hours[d].close}) – לא ישובצו בה עובדים`);
+      else if (c.start !== t.start || c.end !== t.end) info.push(`ביום ${dn} משמרת ${t.name} תקוצר לפי שעות הפעילות: ${c.start}–${c.end}`);
+    }));
+    hours.forEach((h, d) => { if (!h.closed && !types.some(t => (t.need[d] || 0) > 0 && clipShift(t, h))) warn.push(`ביום ${DAYS[d]} העסק פתוח, אבל לא הוגדרו עובדים באף משמרת`); });
+    return { warn, info };
+  }
+  const warnHTML = w => (w.warn.length ? `<div class="warnbox">⚠️ ${w.warn.map(esc).join('<br>⚠️ ')}</div>` : '') +
+    (w.info.length ? `<div class="warnbox" style="background:#e3f2fd;border-color:#90caf9">ℹ️ ${w.info.map(esc).join('<br>ℹ️ ')}</div>` : '');
+  // Effective shift on day d of the current schedule
+  const shiftOn = (t, d) => clipShift(t, S().hours[d]) || t;
+  function renderHoursEditor(el, hours) {
+    el.innerHTML = '<tr><th>יום</th><th>פתוח?</th><th>פתיחה</th><th>סגירה</th></tr>' + DAYS.map((dn, d) => {
+      const h = hours[d], dis = h.closed ? 'disabled' : '';
+      return `<tr data-d="${d}"><th>${dn}</th><td><input type="checkbox" data-f="isOpen" ${h.closed ? '' : 'checked'} style="width:26px;height:26px"></td>
+        <td><input type="time" data-f="open" value="${h.open}" ${dis}></td><td><input type="time" data-f="close" value="${h.close}" ${dis}></td></tr>`;
+    }).join('');
+  }
+  function bindHoursEditor(el, getHours, onChange) {
+    el.onchange = e => {
+      const tr = e.target.closest('tr[data-d]'), f = e.target.dataset.f; if (!tr || !f) return;
+      const h = getHours()[+tr.dataset.d];
+      if (f === 'isOpen') h.closed = !e.target.checked; else h[f] = e.target.value || h[f];
+      setTimeout(onChange);
+    };
+  }
+  function renderTypesEditor(el, types, hours) {
+    el.innerHTML = '<tr><th>שם</th><th>התחלה</th><th>סיום</th>' + DAY_SHORT.map((x, d) => `<th title="${DAYS[d]}">${x}</th>`).join('') + '<th></th></tr>' +
+      types.map((t, i) => `<tr data-i="${i}">
+        <td><input data-f="name" value="${esc(t.name)}" style="min-width:80px"></td>
+        <td><input data-f="start" type="time" value="${t.start}"></td><td><input data-f="end" type="time" value="${t.end}"></td>
+        ${t.need.map((n, d) => hours[d].closed ? '<td class="muted" style="text-align:center;font-size:14px">סגור</td>'
+          : `<td><input data-f="need" data-d="${d}" type="number" min="0" max="9" value="${n}" style="width:56px;padding:8px 4px"></td>`).join('')}
+        <td><button class="small danger" data-rm="${i}">✕</button></td></tr>`).join('');
+  }
+  function bindTypesEditor(el, getTypes, onChange) {
+    el.onclick = e => {
+      const i = e.target.dataset.rm; if (i === undefined) return;
+      const types = getTypes();
+      if (types.length === 1) return alert('חייבת להיות לפחות משמרת אחת');
+      if (!confirm(`למחוק את משמרת "${types[+i].name}"?`)) return;
+      types.splice(+i, 1); onChange();
+    };
+    el.onchange = e => {
+      const tr = e.target.closest('tr[data-i]'), f = e.target.dataset.f; if (!tr || !f) return;
+      const t = getTypes()[+tr.dataset.i];
+      if (f === 'need') t.need[+e.target.dataset.d] = Math.max(0, Math.min(9, +e.target.value || 0));
+      else t[f] = e.target.value.trim() || t[f];
+      setTimeout(onChange);
+    };
+  }
+  // Split the opening hours into a morning and an evening shift, 1 worker each
+  function suggestShifts(hours) {
+    const open = hours.filter(h => !h.closed); if (!open.length) return [];
+    const o = Math.min(...open.map(h => toMin(h.open)));
+    const c = Math.max(...open.map(h => { const x = toMin(h.close); return x <= toMin(h.open) ? x + 1440 : x; }));
+    const mid = Math.round((o + (c - o) / 2) / 60) * 60;
+    const need = hours.map(h => (h.closed ? 0 : 1));
+    return [{ id: 'm', name: 'בוקר', start: fromMin(o), end: fromMin(mid), need: need.slice() },
+            { id: 'e', name: 'ערב', start: fromMin(mid), end: fromMin(c), need: need.slice() }];
+  }
+
+  // ----- work schedule -----
+  function weekStartOf(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - x.getDay()); return x; }
+  const dayOf = (w, i) => { const x = new Date(w); x.setDate(x.getDate() + i); return x; };
+  const fmtDM = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+  const endsLate = t => t.end <= t.start || t.end > '22:00'; // pass shiftOn(t, d)
+  let schedWeek = dayOf(weekStartOf(new Date()), 7); // plan next week by default
+  function week() {
+    const k = isoDate(schedWeek);
+    return db.schedules[k] = db.schedules[k] || { constraints: {}, assign: {}, notes: {} };
+  }
+  function schedMsg(t, cls) { $('schedMsg').textContent = t; $('schedMsg').className = 'msg ' + (cls || ''); }
+
+  function autoBuild() {
+    const w = week(), emps = db.employees.filter(e => e.active), count = {}, byDay = {};
+    emps.forEach(e => { count[e.id] = 0; });
+    w.assign = {};
+    let missing = 0;
+    for (let d = 0; d < 7; d++) for (const t of S().shiftTypes) {
+      const key = d + '-' + t.id, need = needOf(t, d);
+      const cand = emps.filter(e => {
+        const c = (w.constraints[e.id] || {})[key];
+        return c !== 'no' && count[e.id] < (e.maxShifts ?? 6) && !(byDay[d] || []).includes(e.id) && !(isYouth(e) && endsLate(shiftOn(t, d)));
+      }).map(e => ({ e, pref: (w.constraints[e.id] || {})[key] === 'pref' ? 0 : 1, r: Math.random() }))
+        .sort((a, b) => a.pref - b.pref || count[a.e.id] - count[b.e.id] || a.r - b.r);
+      w.assign[key] = cand.slice(0, need).map(x => x.e.id);
+      w.assign[key].forEach(id => { count[id]++; (byDay[d] = byDay[d] || []).push(id); });
+      missing += Math.max(0, need - w.assign[key].length);
+    }
+    save();
+    return missing;
+  }
+
+  function shiftsOf(empId) {
+    const w = week(), out = [];
+    for (let d = 0; d < 7; d++) S().shiftTypes.forEach(t => { if ((w.assign[d + '-' + t.id] || []).includes(empId)) out.push({ d, t }); });
+    return out;
+  }
+  function renderSched() {
+    const w = week(), types = S().shiftTypes;
+    $('weekLabel').textContent = `שבוע ${fmtDate(schedWeek)} – ${fmtDate(dayOf(schedWeek, 6))}`;
+    $('schedHead').innerHTML = '<th>יום</th>' + types.map(t => `<th>${esc(t.name)}<br><span class="muted" style="font-weight:normal;font-size:14px">${t.start}–${t.end}</span></th>`).join('');
+    $('schedBody').innerHTML = DAYS.map((dn, d) => `<tr><th>${dn}<br><span class="muted" style="font-weight:normal">${fmtDM(dayOf(schedWeek, d))}</span></th>` + types.map(t => {
+      const key = d + '-' + t.id, ids = w.assign[key] || [], need = needOf(t, d);
+      if (!need && !ids.length) return '<td class="closed">סגור</td>';
+      const chips = ids.map(id => {
+        const e = empById(id); if (!e) return '';
+        const no = (w.constraints[id] || {})[key] === 'no', yl = isYouth(e) && endsLate(shiftOn(t, d));
+        return `<span class="chip${no || yl ? ' warn' : ''}" title="${no ? 'העובד סימן שלא יכול' : yl ? 'עובד נוער במשמרת מאוחרת' : ''}">${esc(e.name)}${no ? ' ⚠️' : ''}${yl ? ' 🔞' : ''}</span>`;
+      }).join('');
+      const miss = need - ids.length, eff = shiftOn(t, d);
+      const tm = eff.start !== t.start || eff.end !== t.end ? `<div class="muted" style="font-size:13px">${eff.start}–${eff.end}</div>` : '';
+      return `<td class="cell" data-cell="${key}">${tm}${chips}${miss > 0 ? `<div class="missing">חסרים ${miss}</div>` : ''}</td>`;
+    }).join('') + '</tr>').join('');
+    renderWa();
+  }
+  function empMessage(e) {
+    const sh = shiftsOf(e.id);
+    let m = `שלום ${e.name} 👋\nסידור העבודה שלך ב${S().storeName} לשבוע ${fmtDM(schedWeek)}–${fmtDM(dayOf(schedWeek, 6))}:\n\n`;
+    m += sh.length ? sh.map(x => { const t = shiftOn(x.t, x.d); return `• יום ${DAYS[x.d]} ${fmtDM(dayOf(schedWeek, x.d))} – ${x.t.name} ${t.start}–${t.end}`; }).join('\n') : 'אין לך משמרות השבוע.';
+    m += '\n\nתזכורת: לא מוכרים אלכוהול ומוצרי עישון מתחת לגיל 18. מקבלים רק ת״ז או דרכון מקוריים ובתוקף – לא צילום ולא חוגר! 🪪';
+    return m;
+  }
+  function groupMessage() {
+    const w = week();
+    let m = `📅 סידור עבודה – ${S().storeName}\nשבוע ${fmtDM(schedWeek)}–${fmtDM(dayOf(schedWeek, 6))}\n`;
+    DAYS.forEach((dn, d) => {
+      const parts = S().shiftTypes.filter(t => (needOf(t, d)) || (w.assign[d + '-' + t.id] || []).length)
+        .map(t => `${t.name} ${shiftOn(t, d).start}–${shiftOn(t, d).end}: ${(w.assign[d + '-' + t.id] || []).map(id => (empById(id) || {}).name).filter(Boolean).join(', ') || '—'}`);
+      m += `\n*יום ${dn} ${fmtDM(dayOf(schedWeek, d))}*\n` + (parts.length ? parts.join('\n') : 'סגור') + '\n';
+    });
+    return m;
+  }
+  function renderWa() {
+    $('waList').innerHTML = db.employees.filter(e => e.active).map(e => {
+      const n = shiftsOf(e.id).length, num = waNumber(e.phone);
+      return `<tr><td>${esc(e.name)}</td><td>${n}</td><td>${num
+        ? `<a class="wa" target="_blank" rel="noopener" href="https://wa.me/${num}?text=${encodeURIComponent(empMessage(e))}">💬 שליחה בוואטסאפ</a>`
+        : '<span class="muted">אין מספר טלפון בכרטיס העובד</span>'}</td></tr>`;
+    }).join('') || '<tr><td colspan="3" class="muted">אין עובדים פעילים</td></tr>';
+  }
+  $('btnAuto').onclick = () => {
+    if (!db.employees.some(e => e.active)) return schedMsg('יש להוסיף עובדים קודם', 'err');
+    if (Object.values(week().assign).some(a => a.length) && !confirm('הבנייה האוטומטית תחליף את הסידור הקיים לשבוע הזה. להמשיך?')) return;
+    const miss = autoBuild(); renderSched();
+    schedMsg(miss ? `הסידור נבנה, אבל חסרים ${miss} עובדים במשמרות המסומנות באדום` : 'הסידור נבנה בהצלחה ✓ – בדוק ושלח לעובדים', miss ? 'err' : 'good');
+  };
+  $('btnShareGroup').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(groupMessage()), '_blank');
+  $('btnCopyGroup').onclick = async () => {
+    const t = groupMessage();
+    try { await navigator.clipboard.writeText(t); schedMsg('הסידור הועתק – אפשר להדביק בקבוצת הוואטסאפ', 'good'); }
+    catch (e) { prompt('העתק את הטקסט:', t); }
+  };
+
+  let cdKey = null;
+  $('schedBody').onclick = e => { const td = e.target.closest('[data-cell]'); if (td) openCell(td.dataset.cell); };
+  function openCell(key) {
+    cdKey = key;
+    const [d, tid] = key.split('-'), t = S().shiftTypes.find(x => x.id === tid), w = week(), cur = w.assign[key] || [], eff = shiftOn(t, +d);
+    $('cdTitle').textContent = `יום ${DAYS[d]} ${fmtDM(dayOf(schedWeek, +d))} – ${t.name} (${eff.start}–${eff.end})`;
+    $('cdList').innerHTML = db.employees.filter(e => e.active || cur.includes(e.id)).map(e => {
+      const c = (w.constraints[e.id] || {})[key];
+      const info = [c === 'no' ? '<span style="color:var(--danger)">✗ לא יכול</span>' : c === 'pref' ? '<span style="color:var(--ok)">⭐ מעדיף</span>' : '',
+                    `${shiftsOf(e.id).length} משמרות השבוע`, isYouth(e) && endsLate(eff) ? '🔞 עובד נוער – משמרת מאוחרת' : ''].filter(Boolean).join(' · ');
+      return `<label class="check"><input type="checkbox" value="${e.id}" ${cur.includes(e.id) ? 'checked' : ''}><span>${esc(e.name)}<br><span class="muted" style="font-size:14px">${info}</span></span></label>`;
+    }).join('') || '<p class="muted">אין עובדים פעילים</p>';
+    $('cellDlg').showModal();
+  }
+  $('cdClose').onclick = () => $('cellDlg').close();
+  $('cdSave').onclick = () => {
+    week().assign[cdKey] = [...$('cdList').querySelectorAll('input:checked')].map(x => x.value);
+    save(); $('cellDlg').close(); renderSched();
+  };
+
+  function renderCons() {
+    const sel = $('consEmp'), prev = sel.value, emps = db.employees.filter(e => e.active);
+    sel.innerHTML = emps.map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join('');
+    if (emps.some(e => e.id === prev)) sel.value = prev;
+    const id = sel.value, w = week(), types = S().shiftTypes;
+    if (!id) { $('consTable').innerHTML = '<tr><td class="muted">אין עובדים פעילים</td></tr>'; $('consNote').value = ''; return; }
+    const c = w.constraints[id] || {};
+    $('consTable').innerHTML = '<tr><th>יום</th>' + types.map(t => `<th>${esc(t.name)}</th>`).join('') + '</tr>' +
+      DAYS.map((dn, d) => `<tr><th>${dn} ${fmtDM(dayOf(schedWeek, d))}</th>` + types.map(t => {
+        const v = c[d + '-' + t.id] || '';
+        return `<td><button class="cst ${v}" data-k="${d}-${t.id}">${v === 'no' ? '✗ לא יכול' : v === 'pref' ? '⭐ מעדיף' : 'פנוי'}</button></td>`;
+      }).join('') + '</tr>').join('');
+    $('consNote').value = (w.notes || {})[id] || '';
+  }
+  $('consEmp').onchange = renderCons;
+  $('consTable').onclick = e => {
+    const k = e.target.dataset.k; if (!k) return;
+    const w = week(), id = $('consEmp').value, c = w.constraints[id] = w.constraints[id] || {};
+    if (!c[k]) c[k] = 'no'; else if (c[k] === 'no') c[k] = 'pref'; else delete c[k];
+    save(); renderCons(); renderSched();
+  };
+  $('consNote').onchange = () => { const w = week(); w.notes = w.notes || {}; w.notes[$('consEmp').value] = $('consNote').value.trim(); save(); };
+
+  function renderTypes() {
+    renderHoursEditor($('hoursTable'), S().hours);
+    renderTypesEditor($('typesTable'), S().shiftTypes, S().hours);
+    $('typesWarn').innerHTML = warnHTML(shiftWarnings(S().shiftTypes, S().hours));
+  }
+  const afterTypesChange = () => { save(); renderSchedAll(); };
+  bindHoursEditor($('hoursTable'), () => S().hours, afterTypesChange);
+  bindTypesEditor($('typesTable'), () => S().shiftTypes, afterTypesChange);
+  $('btnAddType').onclick = () => { S().shiftTypes.push(newShift()); afterTypesChange(); };
+
+  function renderSchedAll() { renderSched(); renderCons(); renderTypes(); }
+  $('btnPrevWeek').onclick = () => { schedWeek = dayOf(schedWeek, -7); schedMsg(''); renderSchedAll(); };
+  $('btnNextWeek').onclick = () => { schedWeek = dayOf(schedWeek, 7); schedMsg(''); renderSchedAll(); };
+  $('schedSub').onclick = e => {
+    const s = e.target.dataset.sub; if (!s) return;
+    [...$('schedSub').children].forEach(b => b.classList.toggle('active', b.dataset.sub === s));
+    document.querySelectorAll('[data-subpane]').forEach(p => p.classList.toggle('hidden', p.dataset.subpane !== s));
+  };
+
+  // ----- settings -----
+  function renderSettings() {
+    const s = S();
+    $('setStore').value = s.storeName;
+    $('setAddress').value = s.address; $('setManager').value = s.managerName;
+    $('setBizId').value = s.bizId; $('setPhone').value = s.phone;
+    $('setAlc').value = s.alcohol.join(', ');
+    $('setSmk').value = s.smoking.join(', ');
+    $('setRules').value = s.rules.join('\n');
+    $('setEmail').value = s.email; $('setAuto').checked = s.autoSend;
+    $('setEjService').value = s.ejService; $('setEjTemplate').value = s.ejTemplate; $('setEjKey').value = s.ejKey;
+    $('setPin').value = '';
+    $('lastSentInfo').textContent = s.lastSentAt ? `סיכום אחרון נשלח אוטומטית: ${monthName(s.lastSentMonth)} (ב-${fmtDate(new Date(s.lastSentAt))})` : '';
+  }
+  function setMsg(t, cls) { $('setMsg').textContent = t; $('setMsg').className = 'msg ' + (cls || ''); }
+  function readSettings() {
+    const alcohol = splitList($('setAlc').value), smoking = splitList($('setSmk').value);
+    const rules = $('setRules').value.split('\n').map(x => x.trim()).filter(Boolean);
+    if (!alcohol.length || !smoking.length || !rules.length) { setMsg('רשימות המוצרים והכללים לא יכולות להיות ריקות', 'err'); return false; }
+    const p = $('setPin').value.trim();
+    if (p && !/^\d{4}$/.test(p)) { setMsg('קוד מנהל חייב להיות 4 ספרות', 'err'); return false; }
+    const email = $('setEmail').value.trim();
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setMsg('כתובת המייל לא תקינה', 'err'); return false; }
+    const bizId = $('setBizId').value.trim();
+    if (bizId && !/^\d{8,9}$/.test(bizId)) { setMsg('ח.פ. / עוסק מורשה צריך להכיל 9 ספרות', 'err'); return false; }
+    Object.assign(S(), {
+      storeName: $('setStore').value.trim() || 'מיני מרקט', address: $('setAddress').value.trim(),
+      managerName: $('setManager').value.trim(), bizId, phone: $('setPhone').value.trim(), alcohol, smoking, rules, email,
+      autoSend: $('setAuto').checked, ejService: $('setEjService').value.trim(),
+      ejTemplate: $('setEjTemplate').value.trim(), ejKey: $('setEjKey').value.trim()
+    });
+    if (p) S().managerPin = p;
+    // Don't auto-send old months right after first enabling – start from the current month
+    if (S().autoSend && !S().lastSentMonth) S().lastSentMonth = monthKey(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1));
+    save(); renderHome(); return true;
+  }
+  $('btnSaveSettings').onclick = () => {
+    if (!readSettings()) return;
+    renderSettings();
+    setMsg(S().autoSend && !ejReady() ? 'נשמר. שים לב: שליחה אוטומטית לא תפעל עד שתמלא את פרטי EmailJS' : 'ההגדרות נשמרו', S().autoSend && !ejReady() ? 'err' : 'good');
+  };
+  $('btnTestMail').onclick = async () => {
+    if (!readSettings()) return;
+    if (!ejReady()) return setMsg('יש למלא מייל ואת שלושת שדות EmailJS', 'err');
+    setMsg('שולח מייל ניסיון...');
+    try { await sendEmailJS(`בדיקה – ${S().storeName}`, 'זהו מייל ניסיון ממערכת שעון הנוכחות. אם קיבלת אותו – השליחה האוטומטית מוגדרת כראוי.'); setMsg(`מייל ניסיון נשלח אל ${S().email}`, 'good'); }
+    catch (e) { setMsg('השליחה נכשלה: ' + e.message, 'err'); }
+  };
+
+  function download(content, name, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], { type }));
+    a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  const blobToDataURL = b => new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); });
+  $('btnBackup').onclick = async () => {
+    let docs = [];
+    try { docs = await Promise.all((await docAll()).map(async d => Object.assign({}, d, { blob: undefined, data: await blobToDataURL(d.blob) }))); } catch (e) {}
+    download(JSON.stringify(Object.assign({}, db, { docs })), `גיבוי-נוכחות-${isoDate(new Date())}.json`, 'application/json');
+  };
+  $('btnRestore').onclick = () => $('restoreFile').click();
+  $('restoreFile').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const d = JSON.parse(await f.text());
+      if (!d.employees || !d.shifts || !d.settings) throw 0;
+      if (!confirm('השחזור ידרוס את כל הנתונים הנוכחיים. להמשיך?')) return;
+      const docs = d.docs || []; delete d.docs;
+      localStorage.setItem(KEY, JSON.stringify(d)); db = load();
+      if (docs.length || confirm('בגיבוי אין מסמכים. למחוק את המסמכים הקיימים בטאבלט?')) {
+        await docsOp('readwrite', st => st.clear());
+        for (const x of docs) { const blob = await (await fetch(x.data)).blob(); delete x.data; await docPut(Object.assign(x, { blob })); }
+      }
+      openScreen('settings');
+      alert('הנתונים שוחזרו');
+    } catch (err) { alert('קובץ גיבוי לא תקין'); }
+    e.target.value = '';
+  };
+
+  // ---------- first-run setup wizard ----------
+  let wz = null, wzStep = 1;
+  $('setupDlg').addEventListener('cancel', e => e.preventDefault()); // can't skip with Esc
+  function openWizard() {
+    wz = { hours: JSON.parse(JSON.stringify(S().hours)), types: JSON.parse(JSON.stringify(S().shiftTypes)) };
+    wzStep = 1; renderWz(); $('setupDlg').showModal();
+  }
+  function renderWz() {
+    [1, 2, 3, 4].forEach(i => $('wz' + i).classList.toggle('hidden', i !== wzStep));
+    [...$('wzSteps').children].forEach((x, i) => { x.className = i + 1 === wzStep ? 'on' : i + 1 < wzStep ? 'done' : ''; });
+    $('wzPrev').classList.toggle('hidden', wzStep === 1);
+    $('wzNext').textContent = wzStep === 4 ? '✓ סיום והתחלה' : 'הבא ←';
+    $('suMsg').textContent = '';
+    if (wzStep === 2) renderHoursEditor($('wzHours'), wz.hours);
+    if (wzStep === 3) { renderTypesEditor($('wzTypes'), wz.types, wz.hours); $('wzWarn').innerHTML = warnHTML(shiftWarnings(wz.types, wz.hours)); }
+  }
+  bindHoursEditor($('wzHours'), () => wz.hours, () => renderHoursEditor($('wzHours'), wz.hours));
+  bindTypesEditor($('wzTypes'), () => wz.types, renderWz);
+  $('wzCopyHours').onclick = () => { const h0 = wz.hours[0]; wz.hours.forEach(h => { if (!h.closed) { h.open = h0.open; h.close = h0.close; } }); renderWz(); };
+  $('wzSuggest').onclick = () => { wz.types = suggestShifts(wz.hours); renderWz(); };
+  $('wzAddType').onclick = () => { wz.types.push(newShift()); renderWz(); };
+  $('wzPrev').onclick = () => { wzStep--; renderWz(); };
+  $('wzNext').onclick = () => {
+    const err = t => { $('suMsg').textContent = t; };
+    if (wzStep === 1) {
+      const bizId = $('suBizId').value.trim(), email = $('suEmail').value.trim();
+      if (!$('suStore').value.trim()) return err('יש להזין את שם העסק');
+      if (bizId && !/^\d{8,9}$/.test(bizId)) return err('ח.פ. / עוסק מורשה צריך להכיל 9 ספרות');
+      if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return err('כתובת המייל לא תקינה');
+      if ($('suPhone').value.trim() && !waNumber($('suPhone').value)) return err('מספר הטלפון לא תקין');
+    }
+    if (wzStep === 2) {
+      if (wz.hours.every(h => h.closed)) return err('יש לסמן לפחות יום פעילות אחד');
+      if (wz.types.every(t => t.need.every((n, d) => !n || wz.hours[d].closed))) wz.types = suggestShifts(wz.hours); // first visit: suggest shifts
+    }
+    if (wzStep === 3) {
+      const w = shiftWarnings(wz.types, wz.hours).warn;
+      if (w.length && !confirm('שים לב:\n\n' + w.join('\n') + '\n\nלהמשיך בכל זאת?')) return;
+    }
+    if (wzStep < 4) { wzStep++; return renderWz(); }
+    const p = $('suPin').value.trim();
+    if (!/^\d{4}$/.test(p)) return err('קוד מנהל חייב להיות 4 ספרות');
+    if (['1234', '0000', '1111'].includes(p)) return err('בחר קוד מנהל שקשה לנחש');
+    if (p !== $('suPin2').value.trim()) return err('שני הקודים לא זהים');
+    if (db.employees.some(e => e.pin === p)) return err('הקוד כבר בשימוש אצל עובד');
+    Object.assign(S(), { storeName: $('suStore').value.trim(), address: $('suAddress').value.trim(), managerName: $('suManager').value.trim(),
+      bizId: $('suBizId').value.trim(), phone: $('suPhone').value.trim(), email: $('suEmail').value.trim(),
+      hours: wz.hours, shiftTypes: wz.types, managerPin: p, setupDone: true });
+    save(); renderHome(); $('setupDlg').close();
+    alert('העסק הוקם בהצלחה! 🎉\n\nהשלב הבא: לחץ על "👥 עובדים" בסרגל הכלים כדי להוסיף את העובדים.');
+  };
+
+  // ---------- tablet: offline, screen on, keep data ----------
+  const APP_VERSION = '1.0';
+  $('appVersion').textContent = APP_VERSION;
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); // ask the browser not to evict our data
+  let wakeLock = null; // keep the screen on so the warning sign is always visible
+  async function keepAwake() {
+    try { if (!wakeLock && 'wakeLock' in navigator && document.visibilityState === 'visible') { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch (e) {}
+  }
+  document.addEventListener('visibilitychange', keepAwake);
+  document.addEventListener('click', keepAwake);
+  keepAwake();
+
+  // ---------- init ----------
+  setPin(''); renderHome(); tick();
+  if (!S().setupDone) openWizard();
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>
