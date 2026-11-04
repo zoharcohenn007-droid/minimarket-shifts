@@ -106,10 +106,17 @@
   .chip.warn { border-color: var(--danger); background: #ffebee; }
   .missing { color: #fff; background: var(--danger); border-radius: 8px; padding: 2px 8px; display: inline-block; font-size: 14px; margin-top: 4px; }
   .cst { width: 100%; padding: 10px 6px; background: #eceff1; color: var(--text); font-size: 16px; }
-  .cst.no { background: #ffcdd2; color: #b71c1c; } .cst.pref { background: #c8e6c9; color: #1b5e20; }
+  .cst.no { background: #ffcdd2; color: #b71c1c; } .cst.yes { background: #c8e6c9; color: #1b5e20; } .cst.pref { background: #fff59d; color: #6d4c00; }
   a.wa { display: inline-block; background: #25d366; color: #fff; padding: 6px 12px; border-radius: 8px; text-decoration: none; font-size: 15px; }
   .tabs.sub button { padding: 8px 14px; font-size: 16px; }
   #setupDlg { width: min(980px, 96vw); }
+  .folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin: 12px 0; }
+  .folder { background: #fff; color: var(--text); border: 2px solid var(--border); border-radius: 14px; padding: 14px 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+  .folder:hover { border-color: var(--primary); background: #f0f6ff; }
+  .folder .ficon { font-size: 44px; line-height: 1; }
+  .folder .muted { font-size: 14px; }
+  .chip.me { background: #c8e6c9; border-color: #2e7d32; font-weight: bold; }
+  .status-ok { color: var(--ok); font-weight: bold; } .status-wait { color: #e65100; font-weight: bold; }
   .shift-editor th, .shift-editor td { padding: 6px 4px; }
   .shift-editor input { padding: 7px 5px; }
   .shift-editor input[type=time] { width: 108px; }
@@ -135,6 +142,7 @@
 </header>
 <nav id="nav">
   <button data-nav="home" class="active">🏠 כניסה למשמרת</button>
+  <button data-nav="my">👤 האזור האישי</button>
   <button data-nav="log">📋 יומן משמרות</button>
   <button data-nav="summary">📊 סיכום חודשי</button>
   <button data-nav="emps">👥 עובדים</button>
@@ -182,24 +190,72 @@
       </div>
     </section>
 
+    <!-- ===== Employee personal area ===== -->
+    <section id="viewMy" class="card hidden">
+      <div class="row" style="align-items:center">
+        <h2 style="margin:0" id="myTitle"></h2>
+        <div style="flex:0 0 auto"><button class="secondary" id="btnMyExit">יציאה מהאזור האישי</button></div>
+      </div>
+      <div class="tabs sub" id="mySub" style="margin-top:12px">
+        <button data-my="shifts" class="active">📁 המשמרות שלי</button>
+        <button data-my="sched">📅 הסידור השבועי</button>
+        <button data-my="avail">📝 הגשת זמינות לשבוע הבא</button>
+      </div>
+      <div data-mypane="shifts">
+        <div class="row"><div><label>חודש</label><input type="month" id="myMonth"></div></div>
+        <div class="warnbox" style="background:#e8f5e9;border-color:#a5d6a7" id="mySum"></div>
+        <div class="table-wrap"><table style="margin-top:10px"><thead><tr><th>תאריך</th><th>כניסה</th><th>יציאה</th><th>שעות</th></tr></thead><tbody id="myShifts"></tbody></table></div>
+      </div>
+      <div data-mypane="sched" class="hidden">
+        <div class="row" style="align-items:center">
+          <div style="flex:0 0 auto"><button class="secondary small" id="myPrevWeek">→ שבוע קודם</button></div>
+          <div style="text-align:center"><b id="myWeekLabel"></b></div>
+          <div style="flex:0 0 auto"><button class="secondary small" id="myNextWeek">שבוע הבא ←</button></div>
+        </div>
+        <div id="mySchedNote"></div>
+        <div class="table-wrap"><table class="sched"><thead><tr id="mySchedHead"></tr></thead><tbody id="mySchedBody"></tbody></table></div>
+      </div>
+      <div data-mypane="avail" class="hidden">
+        <h3 style="margin:4px 0" id="myAvailWeek"></h3>
+        <div id="myAvailStatus" class="warnbox"></div>
+        <p style="font-size:16px">סמן את המשמרות שאתה <b>יכול</b> לעבוד. לחיצה על משבצת מחליפה בין:
+          <b style="color:#b71c1c">✗ לא יכול</b> ← <b style="color:#1b5e20">✓ יכול</b> ← <b style="color:#6d4c00">⭐ מעדיף</b></p>
+        <button class="secondary small" id="myAllYes">✓ סימון "יכול" בכל המשמרות</button>
+        <div class="table-wrap" style="margin-top:8px"><table id="myAvailTable"></table></div>
+        <label>הערה למנהל (לא חובה)</label><input id="myAvailNote" placeholder="לדוגמה: ביום רביעי יש לי מבחן">
+        <div class="msg" id="myAvailMsg"></div>
+        <button class="ok" id="myAvailSend" style="width:100%;margin-top:6px">📤 שליחת הזמינות למנהל</button>
+      </div>
+    </section>
+
     <!-- ===== Manager ===== -->
     <section id="viewManager" class="card hidden">
       <h2 class="pane-title" id="paneTitle"></h2>
 
       <!-- Log -->
       <div data-pane="log">
-        <div class="row">
-          <div><label>חודש</label><input type="month" id="logMonth"></div>
-          <div><label>עובד</label><select id="logEmp"></select></div>
+        <div class="row"><div><label>חודש</label><input type="month" id="logMonth"></div></div>
+        <select id="logEmp" class="hidden"></select>
+        <div id="logFoldersWrap">
+          <p class="muted" style="font-size:15px;margin:10px 0 0">לכל עובד יש תיקייה עם כל המשמרות שלו. העובד רואה את התיקייה שלו ב"👤 האזור האישי" עם הקוד שלו.</p>
+          <div class="folders" id="logFolders"></div>
+          <button class="secondary small" id="btnAllShifts">📋 הצגת המשמרות של כל העובדים יחד</button>
         </div>
-        <div class="row" style="margin-top:10px">
-          <button class="ok" id="btnAddShift">➕ הוספת משמרת ידנית</button>
-          <button class="secondary" id="btnCsv">ייצוא לאקסל (CSV)</button>
-        </div>
+        <div id="logDetailWrap" class="hidden">
+          <div class="row" style="align-items:center;margin-top:12px">
+            <div style="flex:0 0 auto"><button class="secondary small" id="btnBackFolders">→ חזרה לתיקיות</button></div>
+            <h3 style="margin:0" id="logDetailTitle"></h3>
+          </div>
+          <div class="warnbox" style="background:#e8f5e9;border-color:#a5d6a7" id="logDetailSum"></div>
+          <div class="row" style="margin-top:10px">
+            <button class="ok" id="btnAddShift">➕ הוספת משמרת ידנית</button>
+            <button class="secondary" id="btnCsv">ייצוא לאקסל (CSV)</button>
+          </div>
         <div class="table-wrap"><table style="margin-top:12px">
           <thead><tr><th>עובד</th><th>תאריך</th><th>כניסה</th><th>יציאה</th><th>שעות</th><th>אישור הנחיות</th><th></th></tr></thead>
           <tbody id="logBody"></tbody>
         </table></div>
+        </div>
       </div>
 
       <!-- Summary -->
@@ -237,16 +293,18 @@
           <div style="flex:0 0 auto"><button class="secondary small" id="btnNextWeek">שבוע הבא ←</button></div>
         </div>
         <div class="tabs sub" id="schedSub" style="margin-top:12px">
-          <button data-sub="grid" class="active">הסידור</button>
-          <button data-sub="cons">אילוצי עובדים</button>
-          <button data-sub="types">שעות פעילות ומשמרות</button>
+          <button data-sub="grid" class="active">📅 הסידור השבועי</button>
+          <button data-sub="cons">📝 זמינות שהעובדים הגישו</button>
+          <button data-sub="types">⚙️ שעות פעילות ומשמרות</button>
         </div>
         <div data-subpane="grid">
           <div class="row">
-            <button id="btnAuto">⚙️ בנייה אוטומטית</button>
+            <button id="btnAuto">⚙️ בנייה אוטומטית לפי הזמינות</button>
+            <button class="ok" id="btnPublish">✅ פרסום לעובדים</button>
             <button class="secondary" id="btnShareGroup">💬 שליחת הסידור לקבוצה</button>
             <button class="secondary" id="btnCopyGroup">📋 העתקה</button>
           </div>
+          <div id="pubStatus"></div>
           <div class="msg" id="schedMsg"></div>
           <p class="muted" style="font-size:15px;margin:4px 0">לחיצה על משמרת מאפשרת לשנות את העובדים בה.</p>
           <div class="table-wrap"><table class="sched"><thead><tr id="schedHead"></tr></thead><tbody id="schedBody"></tbody></table></div>
@@ -254,10 +312,13 @@
           <div class="table-wrap"><table><thead><tr><th>עובד</th><th>משמרות</th><th></th></tr></thead><tbody id="waList"></tbody></table></div>
         </div>
         <div data-subpane="cons" class="hidden">
+          <p class="muted" style="font-size:15px;margin-top:0">כל עובד מגיש את הזמינות שלו לשבוע הבא ב"👤 האזור האישי" עם הקוד שלו. הבנייה האוטומטית משבצת לפי מה שהגישו.</p>
+          <div class="table-wrap"><table id="submitStatus"></table></div>
+          <h3 class="section">צפייה ועריכה של זמינות עובד</h3>
           <div class="row"><div><label>עובד</label><select id="consEmp"></select></div></div>
-          <p class="muted" style="font-size:15px">לחיצה על משבצת מחליפה בין: <b>פנוי</b> ← <b style="color:#b71c1c">✗ לא יכול</b> ← <b style="color:#1b5e20">⭐ מעדיף</b></p>
+          <p class="muted" style="font-size:15px">לחיצה על משבצת מחליפה בין: <b>פנוי</b> ← <b style="color:#b71c1c">✗ לא יכול</b> ← <b style="color:#6d4c00">⭐ מעדיף</b></p>
           <div class="table-wrap"><table id="consTable"></table></div>
-          <label>הערות העובד לשבוע זה</label><input id="consNote" placeholder="לדוגמה: מבחן ביום רביעי">
+          <label>הערת העובד לשבוע זה</label><input id="consNote" placeholder="לדוגמה: מבחן ביום רביעי">
         </div>
         <div data-subpane="types" class="hidden">
           <h3 style="margin:4px 0">שעות פעילות העסק</h3>
@@ -380,7 +441,7 @@
 
 <!-- Manager PIN -->
 <dialog id="mgrDlg" style="width:min(400px,94vw)">
-  <h3 style="margin-top:0;text-align:center">🔒 הקלד קוד מנהל</h3>
+  <h3 style="margin-top:0;text-align:center" id="mgrTitle">🔒 הקלד קוד מנהל</h3>
   <div class="pin-display" id="mgrPinDisplay"></div>
   <div class="keypad" id="mgrKeypad"></div>
   <div class="msg err" id="mgrMsg"></div>
@@ -507,7 +568,7 @@
   }
 
   // ---------- views ----------
-  const views = ['viewHome', 'viewGuidelines', 'viewClockOut', 'viewManager'];
+  const views = ['viewHome', 'viewGuidelines', 'viewClockOut', 'viewManager', 'viewMy'];
   function show(v) { views.forEach(x => $(x).classList.toggle('hidden', x !== v)); window.scrollTo(0, 0); }
 
   let bannerKey = '';
@@ -627,11 +688,21 @@
 
   // ---------- toolbar navigation & manager lock ----------
   const TITLES = { log: '📋 יומן משמרות', summary: '📊 סיכום חודשי', emps: '👥 עובדים', sched: '📅 סידור עבודה', settings: '⚙️ הגדרות' };
-  let unlocked = false, pendingNav = null, mgrPin = '', idleTimer = null;
+  let unlocked = false, pinCb = null, mgrPin = '', idleTimer = null, myEmp = null;
   $('nav').onclick = e => { const b = e.target.closest('[data-nav]'); if (b) nav(b.dataset.nav); };
+  function askPin(title, cb) { pinCb = cb; $('mgrTitle').textContent = title; mgrSet(''); $('mgrMsg').textContent = ''; $('mgrDlg').showModal(); }
   function nav(tab) {
     if (tab === 'home') return lock();
-    if (!unlocked) { pendingNav = tab; mgrSet(''); $('mgrMsg').textContent = ''; $('mgrDlg').showModal(); return; }
+    if (tab === 'my') return askPin('👤 הקלד את הקוד האישי שלך', p => {
+      const e = db.employees.find(x => x.active && x.pin === p);
+      if (e) { lock(); openMy(e); return true; }
+      if (p === S().managerPin) { unlocked = true; logView = 'folders'; openScreen('log'); return true; } // manager sees all folders
+      return false;
+    });
+    if (!unlocked) return askPin('🔒 הקלד קוד מנהל', p => {
+      if (p !== S().managerPin) return false;
+      unlocked = true; openScreen(tab); return true;
+    });
     openScreen(tab);
   }
   function openScreen(tab) {
@@ -646,13 +717,17 @@
     $('btnLock').classList.remove('hidden'); resetIdle();
   }
   function lock() {
-    unlocked = false; current = null; clearTimeout(idleTimer);
+    unlocked = false; current = null; myEmp = null; clearTimeout(idleTimer);
     $('btnLock').classList.add('hidden');
     document.querySelectorAll('dialog[open]').forEach(d => { if (d.id !== 'setupDlg') d.close(); });
     renderHome(); show('viewHome'); setActiveNav('home');
   }
   function setActiveNav(tab) { document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.nav === tab)); }
-  function resetIdle() { clearTimeout(idleTimer); if (unlocked) idleTimer = setTimeout(lock, 5 * 60 * 1000); } // auto-lock after 5 idle minutes
+  function resetIdle() { // auto-lock: manager after 5 idle minutes, employee area after 2
+    clearTimeout(idleTimer);
+    if (unlocked) idleTimer = setTimeout(lock, 5 * 60 * 1000);
+    else if (myEmp) idleTimer = setTimeout(lock, 2 * 60 * 1000);
+  }
   ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, resetIdle, true));
   $('btnLock').onclick = lock;
 
@@ -663,8 +738,8 @@
   }
   function mgrSubmit() {
     if (mgrPin.length !== 4) return;
-    if (mgrPin === S().managerPin) { unlocked = true; $('mgrDlg').close(); mgrSet(''); openScreen(pendingNav); }
-    else { $('mgrMsg').textContent = 'קוד שגוי'; mgrSet(''); }
+    const p = mgrPin; mgrSet('');
+    if (pinCb && pinCb(p)) $('mgrDlg').close(); else $('mgrMsg').textContent = 'קוד שגוי';
   }
   ['1','2','3','4','5','6','7','8','9','C','0','⌫'].forEach(k => {
     const b = document.createElement('button'); b.textContent = k;
@@ -691,9 +766,29 @@
       db.employees.map(e => `<option value="${e.id}">${esc(e.name)}${e.active ? '' : ' (לא פעיל)'}</option>`).join('');
     if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
   }
+  let logView = 'folders';
+  function renderFolders() {
+    const m = $('logMonth').value;
+    $('logFolders').innerHTML = db.employees.map(e => {
+      const sh = db.shifts.filter(s => s.empId === e.id && (!m || monthKey(new Date(s.start)) === m));
+      const h = sh.reduce((a, s) => a + hours(s), 0), open = db.shifts.some(s => s.empId === e.id && !s.end);
+      return `<button class="folder" data-folder="${e.id}"><span class="ficon">📁</span><b>${esc(e.name)}</b>
+        <span class="muted">${sh.filter(s => s.end).length} משמרות · ${fmtH(h)} שעות</span>
+        ${open ? '<span class="tag" style="background:#e8f5e9;color:#1b5e20;border-color:#a5d6a7">במשמרת עכשיו</span>' : ''}${e.active ? '' : '<span class="muted">(לא פעיל)</span>'}</button>`;
+    }).join('') || '<p class="muted">עדיין אין עובדים. כשמוסיפים עובד ב"👥 עובדים" נפתחת לו תיקייה אוטומטית.</p>';
+  }
+  $('logFolders').onclick = e => { const b = e.target.closest('[data-folder]'); if (!b) return; $('logEmp').value = b.dataset.folder; logView = 'detail'; renderLog(); };
+  $('btnAllShifts').onclick = () => { $('logEmp').value = ''; logView = 'detail'; renderLog(); };
+  $('btnBackFolders').onclick = () => { logView = 'folders'; renderLog(); };
   function renderLog() {
     empOptions($('logEmp'), true);
-    const rows = filteredShifts();
+    renderFolders();
+    $('logFoldersWrap').classList.toggle('hidden', logView !== 'folders');
+    $('logDetailWrap').classList.toggle('hidden', logView === 'folders');
+    const fe = empById($('logEmp').value);
+    $('logDetailTitle').textContent = fe ? `📁 התיקייה של ${fe.name}` : '📋 המשמרות של כל העובדים';
+    const rows = filteredShifts(), done = rows.filter(s => s.end);
+    $('logDetailSum').innerHTML = `${$('logMonth').value ? monthName($('logMonth').value) : 'כל התקופה'}: <b>${done.length} משמרות · ${fmtH(done.reduce((a, s) => a + hours(s), 0))} שעות</b>`;
     $('logBody').innerHTML = rows.map(s => {
       const st = new Date(s.start), en = s.end && new Date(s.end);
       const outTxt = en ? (isoDate(en) === isoDate(st) ? fmtTime(en) : fmtDate(en) + ' ' + fmtTime(en)) : '<b style="color:var(--ok)">במשמרת</b>';
@@ -1109,10 +1204,14 @@
   const fmtDM = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
   const endsLate = t => t.end <= t.start || t.end > '22:00'; // pass shiftOn(t, d)
   let schedWeek = dayOf(weekStartOf(new Date()), 7); // plan next week by default
-  function week() {
-    const k = isoDate(schedWeek);
-    return db.schedules[k] = db.schedules[k] || { constraints: {}, assign: {}, notes: {} };
+  function weekObj(start) {
+    const k = isoDate(start);
+    const w = db.schedules[k] = db.schedules[k] || {};
+    w.constraints = w.constraints || {}; w.assign = w.assign || {}; w.notes = w.notes || {}; w.submitted = w.submitted || {};
+    return w;
   }
+  const week = () => weekObj(schedWeek);
+  const nextWeekStart = () => dayOf(weekStartOf(new Date()), 7);
   function schedMsg(t, cls) { $('schedMsg').textContent = t; $('schedMsg').className = 'msg ' + (cls || ''); }
 
   function autoBuild() {
@@ -1142,6 +1241,10 @@
   }
   function renderSched() {
     const w = week(), types = S().shiftTypes;
+    $('pubStatus').innerHTML = w.published
+      ? `<div class="warnbox" style="background:#e8f5e9;border-color:#a5d6a7">✅ הסידור פורסם ב-${fmtDate(new Date(w.published))} ${fmtTime(new Date(w.published))}. העובדים רואים אותו ב"👤 האזור האישי". שינויים יופיעו להם מיד.</div>`
+      : '<div class="warnbox">📝 טיוטה – העובדים עדיין לא רואים את הסידור הזה. כשהוא מוכן, לחץ "✅ פרסום לעובדים".</div>';
+    $('btnPublish').textContent = w.published ? '✅ פורסם – ביטול פרסום' : '✅ פרסום לעובדים';
     $('weekLabel').textContent = `שבוע ${fmtDate(schedWeek)} – ${fmtDate(dayOf(schedWeek, 6))}`;
     $('schedHead').innerHTML = '<th>יום</th>' + types.map(t => `<th>${esc(t.name)}<br><span class="muted" style="font-weight:normal;font-size:14px">${t.start}–${t.end}</span></th>`).join('');
     $('schedBody').innerHTML = DAYS.map((dn, d) => `<tr><th>${dn}<br><span class="muted" style="font-weight:normal">${fmtDM(dayOf(schedWeek, d))}</span></th>` + types.map(t => {
@@ -1162,6 +1265,7 @@
     const sh = shiftsOf(e.id);
     let m = `שלום ${e.name} 👋\nסידור העבודה שלך ב${S().storeName} לשבוע ${fmtDM(schedWeek)}–${fmtDM(dayOf(schedWeek, 6))}:\n\n`;
     m += sh.length ? sh.map(x => { const t = shiftOn(x.t, x.d); return `• יום ${DAYS[x.d]} ${fmtDM(dayOf(schedWeek, x.d))} – ${x.t.name} ${t.start}–${t.end}`; }).join('\n') : 'אין לך משמרות השבוע.';
+    m += '\n\nאת הסידור המלא ואת הגשת הזמינות לשבוע הבא אפשר למצוא בטאבלט בחנות: 👤 האזור האישי.';
     m += '\n\nתזכורת: לא מוכרים אלכוהול ומוצרי עישון מתחת לגיל 18. מקבלים רק ת״ז או דרכון מקוריים ובתוקף – לא צילום ולא חוגר! 🪪';
     return m;
   }
@@ -1186,8 +1290,20 @@
   $('btnAuto').onclick = () => {
     if (!db.employees.some(e => e.active)) return schedMsg('יש להוסיף עובדים קודם', 'err');
     if (Object.values(week().assign).some(a => a.length) && !confirm('הבנייה האוטומטית תחליף את הסידור הקיים לשבוע הזה. להמשיך?')) return;
+    const w = week(), notSub = db.employees.filter(e => e.active && !w.submitted[e.id]).map(e => e.name);
     const miss = autoBuild(); renderSched();
-    schedMsg(miss ? `הסידור נבנה, אבל חסרים ${miss} עובדים במשמרות המסומנות באדום` : 'הסידור נבנה בהצלחה ✓ – בדוק ושלח לעובדים', miss ? 'err' : 'good');
+    schedMsg((miss ? `הסידור נבנה, אבל חסרים ${miss} עובדים במשמרות המסומנות באדום.` : 'הסידור נבנה בהצלחה ✓ – בדוק ופרסם לעובדים.') +
+             (notSub.length ? ` שים לב: ${notSub.join(', ')} לא הגישו זמינות ושובצו כאילו הם פנויים בכל המשמרות.` : ''), miss || notSub.length ? 'err' : 'good');
+  };
+  $('btnPublish').onclick = () => {
+    const w = week();
+    if (w.published) { if (!confirm('לבטל את הפרסום? העובדים לא יראו את הסידור לשבוע הזה.')) return; delete w.published; }
+    else {
+      if (!Object.values(w.assign).some(a => a.length)) return schedMsg('הסידור ריק – בנה אותו קודם', 'err');
+      w.published = new Date().toISOString();
+      schedMsg('הסידור פורסם ✓ – אפשר גם לשלוח לעובדים בוואטסאפ למטה', 'good');
+    }
+    save(); renderSched();
   };
   $('btnShareGroup').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(groupMessage()), '_blank');
   $('btnCopyGroup').onclick = async () => {
@@ -1216,7 +1332,15 @@
     save(); $('cellDlg').close(); renderSched();
   };
 
+  function renderSubmitStatus() {
+    const w = week(), emps = db.employees.filter(e => e.active);
+    $('submitStatus').innerHTML = '<tr><th>עובד</th><th>הגשת זמינות לשבוע זה</th><th>הערה</th></tr>' + (emps.map(e => {
+      const t = w.submitted[e.id];
+      return `<tr><td>${esc(e.name)}</td><td>${t ? `<span class="status-ok">✅ הוגש ${fmtDate(new Date(t))} ${fmtTime(new Date(t))}</span>` : '<span class="status-wait">⏳ טרם הגיש</span>'}</td><td>${esc(w.notes[e.id] || '')}</td></tr>`;
+    }).join('') || '<tr><td colspan="3" class="muted">אין עובדים פעילים</td></tr>');
+  }
   function renderCons() {
+    renderSubmitStatus();
     const sel = $('consEmp'), prev = sel.value, emps = db.employees.filter(e => e.active);
     sel.innerHTML = emps.map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join('');
     if (emps.some(e => e.id === prev)) sel.value = prev;
@@ -1248,6 +1372,103 @@
   bindHoursEditor($('hoursTable'), () => S().hours, afterTypesChange);
   bindTypesEditor($('typesTable'), () => S().shiftTypes, afterTypesChange);
   $('btnAddType').onclick = () => { S().shiftTypes.push(newShift()); afterTypesChange(); };
+
+
+  // ----- employee personal area -----
+  let myWeek = null, myDraft = {};
+  function openMy(e) {
+    myEmp = e; myWeek = weekStartOf(new Date());
+    $('myTitle').textContent = `👤 שלום ${e.name}`;
+    $('myMonth').value = monthKey(new Date());
+    $('myAvailMsg').textContent = '';
+    loadDraft(); mySub('shifts'); renderMy();
+    show('viewMy'); setActiveNav('my'); resetIdle();
+  }
+  function renderMy() { if (!myEmp) return; renderMyShifts(); renderMySched(); renderMyAvail(); }
+  function mySub(tab) {
+    [...$('mySub').children].forEach(b => b.classList.toggle('active', b.dataset.my === tab));
+    document.querySelectorAll('[data-mypane]').forEach(p => p.classList.toggle('hidden', p.dataset.mypane !== tab));
+  }
+  $('mySub').onclick = e => { const t = e.target.dataset.my; if (t) mySub(t); };
+  $('btnMyExit').onclick = lock;
+
+  function renderMyShifts() {
+    const m = $('myMonth').value || monthKey(new Date());
+    const sh = db.shifts.filter(s => s.empId === myEmp.id && monthKey(new Date(s.start)) === m).sort((a, b) => b.start.localeCompare(a.start));
+    const done = sh.filter(s => s.end);
+    $('mySum').innerHTML = `${monthName(m)}: <b>${done.length} משמרות · ${fmtH(done.reduce((a, s) => a + hours(s), 0))} שעות</b>`;
+    $('myShifts').innerHTML = sh.map(s => {
+      const st = new Date(s.start), en = s.end && new Date(s.end);
+      return `<tr><td>יום ${DAYS[st.getDay()]} ${fmtDate(st)}</td><td>${fmtTime(st)}</td>
+        <td>${en ? (isoDate(en) === isoDate(st) ? fmtTime(en) : fmtDate(en) + ' ' + fmtTime(en)) : '<b style="color:var(--ok)">במשמרת</b>'}</td>
+        <td>${en ? fmtH(hours(s)) : '–'}</td></tr>`;
+    }).join('') || '<tr><td colspan="4" class="muted">אין משמרות בחודש זה</td></tr>';
+  }
+  $('myMonth').onchange = renderMyShifts;
+
+  function renderMySched() {
+    const w = weekObj(myWeek), types = S().shiftTypes;
+    $('myWeekLabel').textContent = `שבוע ${fmtDate(myWeek)} – ${fmtDate(dayOf(myWeek, 6))}`;
+    if (!w.published) {
+      $('mySchedNote').innerHTML = '<div class="warnbox">הסידור לשבוע הזה עדיין לא פורסם.</div>';
+      $('mySchedHead').innerHTML = ''; $('mySchedBody').innerHTML = ''; return;
+    }
+    let n = 0;
+    $('mySchedHead').innerHTML = '<th>יום</th>' + types.map(t => `<th>${esc(t.name)}</th>`).join('');
+    $('mySchedBody').innerHTML = DAYS.map((dn, d) => `<tr><th>${dn}<br><span class="muted" style="font-weight:normal">${fmtDM(dayOf(myWeek, d))}</span></th>` + types.map(t => {
+      const ids = w.assign[d + '-' + t.id] || [];
+      if (!needOf(t, d) && !ids.length) return '<td class="closed">סגור</td>';
+      const eff = shiftOn(t, d);
+      return `<td><div class="muted" style="font-size:13px">${eff.start}–${eff.end}</div>` + ids.map(id => {
+        const e = empById(id); if (!e) return '';
+        if (id === myEmp.id) n++;
+        return `<span class="chip${id === myEmp.id ? ' me' : ''}">${esc(e.name)}</span>`;
+      }).join('') + '</td>';
+    }).join('') + '</tr>').join('');
+    $('mySchedNote').innerHTML = `<div class="warnbox" style="background:#e8f5e9;border-color:#a5d6a7">יש לך <b>${n}</b> משמרות בשבוע הזה (מסומנות בירוק).</div>`;
+  }
+  $('myPrevWeek').onclick = () => { myWeek = dayOf(myWeek, -7); renderMySched(); };
+  $('myNextWeek').onclick = () => { myWeek = dayOf(myWeek, 7); renderMySched(); };
+
+  const openSlots = () => { const out = []; for (let d = 0; d < 7; d++) S().shiftTypes.forEach(t => { if (needOf(t, d)) out.push({ d, t, k: d + '-' + t.id }); }); return out; };
+  function loadDraft() {
+    const w = weekObj(nextWeekStart()), c = w.constraints[myEmp.id] || {};
+    myDraft = {};
+    if (w.submitted[myEmp.id]) openSlots().forEach(x => { if (c[x.k] !== 'no') myDraft[x.k] = c[x.k] === 'pref' ? 'pref' : 'yes'; });
+    $('myAvailNote').value = w.notes[myEmp.id] || '';
+  }
+  function renderMyAvail() {
+    const ws = nextWeekStart(), w = weekObj(ws), types = S().shiftTypes, sub = w.submitted[myEmp.id];
+    $('myAvailWeek').textContent = `זמינות לשבוע ${fmtDate(ws)} – ${fmtDate(dayOf(ws, 6))}`;
+    $('myAvailStatus').innerHTML = sub ? `✅ שלחת זמינות ב-${fmtDate(new Date(sub))} בשעה ${fmtTime(new Date(sub))}. אפשר לשנות ולשלוח שוב.`
+                                       : '⏳ עדיין לא שלחת זמינות לשבוע הזה.';
+    $('myAvailStatus').style.cssText = sub ? 'background:#e8f5e9;border-color:#a5d6a7' : '';
+    $('myAvailTable').innerHTML = '<tr><th>יום</th>' + types.map(t => `<th>${esc(t.name)}</th>`).join('') + '</tr>' +
+      DAYS.map((dn, d) => `<tr><th>${dn} ${fmtDM(dayOf(ws, d))}</th>` + types.map(t => {
+        if (!needOf(t, d)) return '<td class="closed muted" style="text-align:center">סגור</td>';
+        const k = d + '-' + t.id, v = myDraft[k], eff = shiftOn(t, d);
+        return `<td><button class="cst ${v || 'no'}" data-ak="${k}">${v === 'yes' ? '✓ יכול' : v === 'pref' ? '⭐ מעדיף' : '✗ לא יכול'}<br><span style="font-size:13px;font-weight:normal">${eff.start}–${eff.end}</span></button></td>`;
+      }).join('') + '</tr>').join('');
+  }
+  $('myAvailTable').onclick = e => {
+    const b = e.target.closest('[data-ak]'); if (!b) return;
+    const k = b.dataset.ak;
+    myDraft[k] = !myDraft[k] ? 'yes' : myDraft[k] === 'yes' ? 'pref' : undefined;
+    if (!myDraft[k]) delete myDraft[k];
+    $('myAvailMsg').textContent = ''; renderMyAvail();
+  };
+  $('myAllYes').onclick = () => { openSlots().forEach(x => { if (!myDraft[x.k]) myDraft[x.k] = 'yes'; }); renderMyAvail(); };
+  $('myAvailSend').onclick = () => {
+    const slots = openSlots();
+    if (!slots.some(x => myDraft[x.k]) && !confirm('לא סימנת אף משמרת – כלומר אתה לא יכול לעבוד בשבוע הבא. לשלוח בכל זאת?')) return;
+    const w = weekObj(nextWeekStart()), c = {};
+    slots.forEach(x => { if (!myDraft[x.k]) c[x.k] = 'no'; else if (myDraft[x.k] === 'pref') c[x.k] = 'pref'; });
+    w.constraints[myEmp.id] = c;
+    w.submitted[myEmp.id] = new Date().toISOString();
+    w.notes[myEmp.id] = $('myAvailNote').value.trim();
+    save(); renderMyAvail();
+    $('myAvailMsg').textContent = `הזמינות נשלחה למנהל ✓ (${slots.filter(x => myDraft[x.k]).length} משמרות)`; $('myAvailMsg').className = 'msg good';
+  };
 
   function renderSchedAll() { renderSched(); renderCons(); renderTypes(); }
   $('btnPrevWeek').onclick = () => { schedWeek = dayOf(schedWeek, -7); schedMsg(''); renderSchedAll(); };
@@ -1392,7 +1613,7 @@
   };
 
   // ---------- tablet: offline, screen on, keep data ----------
-  const APP_VERSION = '1.1';
+  const APP_VERSION = '1.2';
   $('appVersion').textContent = APP_VERSION;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); // ask the browser not to evict our data
