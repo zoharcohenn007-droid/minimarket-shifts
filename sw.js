@@ -1,5 +1,5 @@
 // Offline support: always try the network first (so updates arrive), fall back to the saved copy.
-const CACHE = 'minimarket-v9';
+const CACHE = 'minimarket-v10';
 const FB = './vendor/firebase-10.14.1/';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png',
   FB + 'firebase-app.js', FB + 'firebase-auth.js', FB + 'firebase-firestore.js', FB + 'firebase-storage.js'];

@@ -105,6 +105,12 @@
   a.wa { display: inline-block; background: #25d366; color: #fff; padding: 6px 12px; border-radius: 8px; text-decoration: none; font-size: 15px; }
   .tabs.sub button { padding: 8px 14px; font-size: 16px; }
   #setupDlg { width: min(980px, 96vw); }
+  .training-text { background: #fff8e1; border: 3px solid #f9a825; border-radius: 12px; padding: 4px 18px 10px; line-height: 1.6; font-size: 18px; }
+  .training-text h3 { margin: 16px 0 4px; font-size: 20px; }
+  .training-text ul { margin: 4px 0; padding-inline-start: 22px; }
+  .sigpad { width: 100%; height: 180px; border: 3px dashed #90a4ae; border-radius: 12px; background: #fff; touch-action: none; display: block; cursor: crosshair; }
+  .sigpad.signed { border-color: var(--ok); border-style: solid; }
+  .train-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
   .folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin: 12px 0; }
   .folder { background: #fff; color: var(--text); border: 2px solid var(--border); border-radius: 14px; padding: 14px 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
   .folder:hover { border-color: var(--primary); background: #f0f6ff; }
@@ -212,6 +218,22 @@
     </section>
 
     <!-- ===== Clock-out ===== -->
+    <section id="viewTraining" class="card hidden">
+      <h2 style="margin-top:0">📚 הדרכה חודשית – <span id="trMonth"></span></h2>
+      <p style="font-size:19px">שלום <b id="trName"></b>, לפני הכניסה הראשונה למשמרת החודש יש לקרוא את ההדרכה עד הסוף, לאשר ולחתום.</p>
+      <div class="training-text" id="trText"></div>
+      <label class="check" id="trChk1Wrap"><input type="checkbox" id="trChk1"> קראתי והבנתי את כל החומר בהדרכה.</label>
+      <label class="check" id="trChk2Wrap"><input type="checkbox" id="trChk2"> אני מתחייב/ת להקפיד על ההנחיות למכירת אלכוהול ומוצרי עישון בכל משמרת.</label>
+      <label for="trSig" style="font-size:17px;color:var(--text)">✍️ חתימה – חתמו באצבע בתוך המסגרת:</label>
+      <canvas id="trSig" class="sigpad"></canvas>
+      <div style="margin-top:6px"><button class="secondary small" id="trClear" type="button">ניקוי החתימה</button></div>
+      <div class="msg" id="trMsg"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="ok" id="trSubmit" disabled>✍️ אישור וחתימה</button>
+        <button class="secondary" id="trCancel">ביטול</button>
+      </div>
+    </section>
+
     <section id="viewClockOut" class="card hidden">
       <h2 style="margin-top:0"><span id="oName"></span>, את/ה במשמרת</h2>
       <p id="oSince" style="font-size:22px"></p>
@@ -311,7 +333,7 @@
         </div>
         <div class="msg" id="empMsg"></div>
         <div class="table-wrap"><table>
-          <thead><tr><th>שם</th><th>גיל</th><th>טלפון</th><th>ת״ז</th><th>מסמכים</th><th>סטטוס</th><th></th></tr></thead>
+          <thead><tr><th>שם</th><th>גיל</th><th>טלפון</th><th>ת״ז</th><th>מסמכים</th><th>הדרכה החודש</th><th>סטטוס</th><th></th></tr></thead>
           <tbody id="empBody"></tbody>
         </table></div>
       </div>
@@ -395,6 +417,15 @@
         <textarea id="setSmk" rows="3"></textarea>
         <label>כללי מכירה (שורה אחת לכל כלל)</label>
         <textarea id="setRules" rows="8"></textarea>
+
+        <h3 class="section">הדרכה חודשית</h3>
+        <label class="check" style="font-size:17px"><input type="checkbox" id="setTrainOn"> חובה: בכל חודש, לפני הכניסה הראשונה למשמרת, העובד קורא את ההדרכה, מאשר וחותם. ההדרכה החתומה נשמרת בכרטיס העובד.</label>
+        <label for="setTrainText">תוכן ההדרכה – שורה שמתחילה ב-<b>#</b> היא כותרת, שורה שמתחילה ב-<b>-</b> היא סעיף. רשימות המוצרים וכללי המכירה מלמעלה מתווספים אוטומטית בסוף.</label>
+        <textarea id="setTrainText" rows="12"></textarea>
+        <div class="row" style="margin-top:6px">
+          <div style="flex:0 0 auto"><button class="secondary small" id="btnTrainPreview" type="button">👁️ תצוגה מקדימה</button></div>
+          <div style="flex:0 0 auto"><button class="secondary small" id="btnTrainDefault" type="button">שחזור לנוסח ברירת המחדל</button></div>
+        </div>
 
         <h3 class="section">סיכום חודשי במייל</h3>
         <label>כתובת המייל שלך</label>
@@ -518,6 +549,10 @@
   <div class="row"><div><label>תחילת עבודה</label><input type="date" id="edStart"></div><div><label>שכר לשעה (₪)</label><input id="edWage" type="number" min="0" step="0.01" dir="ltr"></div><div><label>מקס׳ משמרות בשבוע</label><input id="edMax" type="number" min="0" max="14" dir="ltr"></div></div>
   <label>הערות</label><textarea id="edNotes" rows="2"></textarea>
   <label class="check" style="font-size:17px"><input type="checkbox" id="edActive"> עובד פעיל (יכול להחתים כניסה ולהשתבץ בסידור)</label>
+  <div id="edTrainWrap">
+    <h3 class="section">📚 הדרכות חודשיות חתומות</h3>
+    <div id="edTrain"></div>
+  </div>
   <div id="edDocsWrap">
     <h3 class="section">מסמכים</h3>
     <div class="row"><div><label>סוג המסמך</label><select id="edDocType"></select></div>
@@ -564,6 +599,36 @@
   'use strict';
   const LEGACY_KEY = 'minimarket_shifts_v1'; // data saved before cloud accounts existed
   let KEY = null;                              // per account: minimarket_shifts_v1_<uid>
+  const DEFAULT_TRAINING = [
+    '# מטרת ההדרכה',
+    'ההדרכה החודשית מרעננת את הכללים למכירת משקאות אלכוהוליים ומוצרי עישון. כל עובד קורא אותה, מאשר וחותם פעם בחודש.',
+    '# החוק בקצרה',
+    '- חל איסור מוחלט למכור משקאות אלכוהוליים למי שטרם מלאו לו 18 שנה.',
+    '- חל איסור מוחלט למכור מוצרי טבק ועישון – כולל סיגריות אלקטרוניות, נוזלי מילוי ומוצרי טבק מחומם – למי שטרם מלאו לו 18 שנה.',
+    '- מכירה לקטין היא עבירה על החוק. היא עלולה לגרור קנסות כבדים לעסק ולמוכר עצמו, ואף פגיעה ברישיון העסק.',
+    '- האחריות היא גם של המוכר באופן אישי – לא רק של בעל העסק.',
+    '# מתי חובה לבקש תעודה',
+    '- מכל לקוח שנראה צעיר. אם יש ספק – מבקשים תעודה.',
+    '- גם אם הלקוח מוכר לך, נראה מבוגר או טוען שהוא "כבר בן 18".',
+    '- כשקונים בקבוצה – בודקים את כל מי שנראה צעיר.',
+    '# אילו תעודות מתקבלות',
+    '- רק תעודת זהות או דרכון – מקוריים ובתוקף.',
+    '- לא מתקבלים: צילום או תמונה בטלפון, חוגר, רישיון נהיגה, כרטיס סטודנט או כל מסמך אחר.',
+    '- תעודה שנראית פגומה, מחוקה או מזויפת – לא מוכרים.',
+    '# איך בודקים',
+    '- משווים את תאריך הלידה בתעודה ל"תאריך הקובע" שמופיע בשלט האדום במסך.',
+    '- נולד בתאריך הקובע או לפניו – מותר. נולד אחריו – אסור, גם אם חסר יום אחד.',
+    '- מוודאים שהתמונה בתעודה תואמת ללקוח.',
+    '# מכירה עקיפה',
+    '- אסור למכור לבגיר כשברור שהמוצר מיועד לקטין שנמצא איתו או מחכה לו בחוץ.',
+    '# שעות',
+    '- מכירת משקאות אלכוהוליים בחנות אסורה בין השעות 23:00 ל-06:00, גם לבגירים.',
+    '# כשלקוח מתעקש',
+    '- מסרבים בנימוס ובקצרה: "מצטער/ת, לפי החוק אני לא יכול/ה למכור בלי תעודה מתאימה."',
+    '- לא מתווכחים ולא נכנעים ללחץ. בכל מקרה של עימות – מתקשרים למנהל.',
+    '# חשוב',
+    '- ההנחיות האלה הן חלק מנהלי העבודה בחנות. בכל שאלה – פונים למנהל.'
+  ].join('\n');
   const DEFAULTS = {
     storeName: 'מיני מרקט',
     managerPin: '1234',
@@ -584,6 +649,7 @@
       { id: 'e', name: 'ערב', start: '15:00', end: '23:00', need: [1, 1, 1, 1, 2, 1, 1] }
     ],
     hours: [0, 1, 2, 3, 4, 5, 6].map(() => ({ open: '07:00', close: '23:00', closed: false })),
+    trainingOn: true, trainingText: DEFAULT_TRAINING,
     bizType: 'מיני מרקט', address: '', managerName: '', bizId: '', phone: '', setupDone: false,
     email: '', autoSend: false, ejService: '', ejTemplate: '', ejKey: '', lastSentMonth: ''
   };
@@ -597,7 +663,7 @@
   function normalize(d) {
     if (!d || !d.employees) d = { settings: {}, employees: [], shifts: [] };
     d.settings = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), d.settings);
-    d.schedules = d.schedules || {}; d.docs = d.docs || []; d.deleted = d.deleted || [];
+    d.schedules = d.schedules || {}; d.docs = d.docs || []; d.deleted = d.deleted || []; d.trainings = d.trainings || [];
     return d;
   }
   let db = load();
@@ -641,7 +707,7 @@
   }
 
   // ---------- views ----------
-  const views = ['viewHome', 'viewGuidelines', 'viewClockOut', 'viewManager', 'viewMy'];
+  const views = ['viewHome', 'viewGuidelines', 'viewClockOut', 'viewManager', 'viewMy', 'viewTraining'];
   function show(v) { views.forEach(x => $(x).classList.toggle('hidden', x !== v)); window.scrollTo(0, 0); }
 
   let bannerKey = '';
@@ -723,7 +789,12 @@
       $('oName').textContent = emp.name;
       $('oSince').textContent = `במשמרת מאז ${fmtDate(new Date(open.start))} בשעה ${fmtTime(new Date(open.start))}`;
       show('viewClockOut');
-    } else {
+    } else if (needsTraining(emp)) openTraining(emp);
+    else showGuidelines(emp);
+  }
+  function showGuidelines(emp) {
+    current = emp;
+    {
       $('gName').textContent = emp.name;
       $('gAlc').innerHTML = S().alcohol.map(x => `<span class="chip">${esc(x)}</span>`).join('');
       $('gSmk').innerHTML = S().smoking.map(x => `<span class="chip">${esc(x)}</span>`).join('');
@@ -1047,12 +1118,13 @@
     d.shifts.forEach(x => { r['shift__' + x.id] = x; });
     Object.entries(d.schedules).forEach(([k, w]) => { r['schedule__' + k] = w; });
     d.docs.forEach(x => { r['doc__' + x.id] = x; });
+    d.trainings.forEach(x => { r['training__' + x.id] = x; });
     d.deleted.forEach(x => { r['deleted__' + x.id] = x; });
     return r;
   }
   function applyRecord(key, val) { // val === null -> deleted
     const i = key.indexOf('__'), kind = key.slice(0, i), id = key.slice(i + 2);
-    const list = { employee: 'employees', shift: 'shifts', doc: 'docs', deleted: 'deleted' }[kind];
+    const list = { employee: 'employees', shift: 'shifts', doc: 'docs', deleted: 'deleted', training: 'trainings' }[kind];
     if (kind === 'settings') { if (val) db.settings = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), val); return; }
     if (kind === 'schedule') { if (val) db.schedules[id] = val; else delete db.schedules[id]; return; }
     if (!list) return;
@@ -1364,6 +1436,7 @@
       <td>${a === null ? '–' : a}${a !== null && a < 18 ? ' <span class="tag">נוער</span>' : ''}</td>
       <td dir="ltr" style="text-align:right">${esc(e.phone || '–')}</td><td>${esc(e.idNumber || '–')}</td>
       <td>${docCounts[e.id] ? '📎 ' + docCounts[e.id] : '–'}</td>
+      <td>${trainedThisMonth(e) ? '<span class="status-ok">✅ נחתמה</span>' : S().trainingOn ? '<span class="status-wait">⏳ טרם</span>' : '–'}</td>
       <td>${e.active ? 'פעיל' : '<span class="muted">לא פעיל</span>'}</td>
       <td><button class="small" data-open="${e.id}">פרטים</button></td></tr>`; }).join('')
       || `<tr><td colspan="7" class="muted">${q ? 'לא נמצאו עובדים' : 'עדיין לא הוגדרו עובדים'}</td></tr>`;
@@ -1383,6 +1456,7 @@
     $('edActive').checked = e ? e.active : true;
     $('edDelete').classList.toggle('hidden', !e);
     $('edDocsWrap').classList.toggle('hidden', !e);
+    $('edTrainWrap').classList.toggle('hidden', !e); if (e) renderTrainList(e);
     $('edMsg').textContent = ''; showAge();
     if (e) renderDocs();
   }
@@ -1727,6 +1801,113 @@
   $('btnAddType').onclick = () => { S().shiftTypes.push(newShift()); afterTypesChange(); };
 
 
+
+  // ----- monthly training: read, confirm, sign -----
+  const trainedThisMonth = e => (db.trainings || []).some(t => t.empId === e.id && t.month === monthKey(new Date()));
+  const needsTraining = e => S().trainingOn && !trainedThisMonth(e);
+  function trainingLines() {
+    const lines = (S().trainingText || DEFAULT_TRAINING).split('\n').map(x => x.trim());
+    return lines.concat(['# המוצרים שחל עליהם האיסור בחנות',
+      '- אלכוהול: ' + S().alcohol.join(', '), '- מוצרי עישון: ' + S().smoking.join(', '),
+      '# כללי המכירה בחנות'], S().rules.map(r => '- ' + r));
+  }
+  function linesToHTML(lines) {
+    let h = '', list = false;
+    for (const l of lines) {
+      if (l.startsWith('- ')) { if (!list) { h += '<ul>'; list = true; } h += `<li>${esc(l.slice(2))}</li>`; continue; }
+      if (list) { h += '</ul>'; list = false; }
+      if (l.startsWith('#')) h += `<h3>${esc(l.replace(/^#+\s*/, ''))}</h3>`;
+      else if (l) h += `<p>${esc(l)}</p>`;
+    }
+    return h + (list ? '</ul>' : '');
+  }
+  let trEmp = null, sigLen = 0, sigDown = false, sigLast = null;
+  const sig = $('trSig');
+  function openTraining(emp) {
+    trEmp = emp; current = null;
+    $('trName').textContent = emp.name; $('trMonth').textContent = monthName(monthKey(new Date()));
+    $('trText').innerHTML = linesToHTML(trainingLines());
+    $('trChk1').checked = $('trChk2').checked = false; $('trMsg').textContent = '';
+    show('viewTraining');
+    requestAnimationFrame(sigReset);
+  }
+  function sigReset() {
+    const r = sig.getBoundingClientRect(), k = window.devicePixelRatio || 1;
+    sig.width = Math.max(1, Math.round(r.width * k)); sig.height = Math.max(1, Math.round(r.height * k));
+    const g = sig.getContext('2d'); g.setTransform(k, 0, 0, k, 0, 0);
+    g.lineWidth = 3; g.lineCap = g.lineJoin = 'round'; g.strokeStyle = '#0d47a1';
+    sigLen = 0; updateTrainBtn();
+  }
+  const sigPt = e => { const r = sig.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  sig.addEventListener('pointerdown', e => { e.preventDefault(); sigDown = true; sigLast = sigPt(e); sig.setPointerCapture(e.pointerId); });
+  sig.addEventListener('pointermove', e => {
+    if (!sigDown) return;
+    const p = sigPt(e), g = sig.getContext('2d');
+    g.beginPath(); g.moveTo(sigLast.x, sigLast.y); g.lineTo(p.x, p.y); g.stroke();
+    sigLen += Math.hypot(p.x - sigLast.x, p.y - sigLast.y); sigLast = p;
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => sig.addEventListener(ev, () => { if (sigDown) { sigDown = false; updateTrainBtn(); } }));
+  $('trClear').onclick = sigReset;
+  function updateTrainBtn() {
+    ['trChk1', 'trChk2'].forEach(c => $(c + 'Wrap').classList.toggle('on', $(c).checked));
+    sig.classList.toggle('signed', sigLen > 60);
+    $('trSubmit').disabled = !($('trChk1').checked && $('trChk2').checked && sigLen > 60);
+  }
+  $('trChk1').onchange = $('trChk2').onchange = updateTrainBtn;
+  function signatureImage() { // the signature on a white background, small enough to store with the record
+    const out = document.createElement('canvas'), w = 480, h = Math.round(480 * sig.height / sig.width);
+    out.width = w; out.height = h;
+    const g = out.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(sig, 0, 0, w, h);
+    return out.toDataURL('image/png');
+  }
+  $('trSubmit').onclick = () => {
+    if ($('trSubmit').disabled || !trEmp) return;
+    const now = new Date(), emp = trEmp;
+    db.trainings.push({ id: uid(), empId: emp.id, empName: emp.name, idNumber: emp.idNumber || '', month: monthKey(now), at: now.toISOString(),
+      lines: trainingLines(), confirmed: { read: true, commit: true }, signature: signatureImage(),
+      store: S().storeName, bizId: S().bizId || '', address: S().address || '' });
+    save(); trEmp = null;
+    showGuidelines(emp);
+  };
+  $('trCancel').onclick = () => { trEmp = null; show('viewHome'); homeMsg('בלי הדרכה חודשית חתומה אי אפשר להיכנס למשמרת', 'err'); };
+
+  const validSig = x => typeof x === 'string' && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(x);
+  function trainingDocHTML(t) {
+    const at = t.at ? new Date(t.at) : null;
+    return `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>הדרכה חתומה – ${esc(t.empName || '')} – ${esc(monthName(t.month))}</title>
+<style>body{font-family:Arial,sans-serif;max-width:820px;margin:20px auto;padding:0 16px;color:#111;line-height:1.6}h1{font-size:24px;margin:10px 0 6px}h3{margin:16px 0 4px}
+.meta{background:#f4f5f7;border-radius:8px;padding:10px 14px}.sig{border:1px solid #999;border-radius:8px;padding:6px;display:inline-block;background:#fff}
+button{font-size:18px;padding:8px 16px;cursor:pointer}@media print{.noprint{display:none}}</style></head><body>
+<button class="noprint" onclick="print()">🖨️ הדפסה / שמירה כ-PDF</button>
+<h1>הדרכה חודשית – מכירת אלכוהול ומוצרי עישון</h1>
+<div class="meta"><b>${esc(t.store || '')}</b>${t.bizId ? ' · ח.פ./ע.מ. ' + esc(t.bizId) : ''}${t.address ? ' · ' + esc(t.address) : ''}<br>
+עובד/ת: <b>${esc(t.empName || '')}</b>${t.idNumber ? ' · ת"ז ' + esc(t.idNumber) : ''}<br>
+חודש: <b>${esc(monthName(t.month))}</b>${at ? ` · נחתם ב-<b>${fmtDate(at)}</b> בשעה <b>${fmtTime(at)}</b>` : ''}</div>
+${linesToHTML(t.lines || [])}
+<h3>אישורים</h3><p>☑ קראתי והבנתי את כל החומר בהדרכה.<br>☑ אני מתחייב/ת להקפיד על ההנחיות למכירת אלכוהול ומוצרי עישון בכל משמרת.</p>
+<h3>חתימה</h3><div class="sig">${validSig(t.signature) ? `<img src="${t.signature}" width="360" alt="חתימה">` : '<i>(תצוגה מקדימה – ללא חתימה)</i>'}</div>
+<p style="font-size:12px;color:#666">המסמך נוצר במערכת שעון הנוכחות בזמן החתימה בטאבלט החנות.</p></body></html>`;
+  }
+  function openTrainingDoc(t) {
+    const html = trainingDocHTML(t), url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    if (!window.open(url, '_blank')) download(html, `הדרכה-${t.empName || ''}-${t.month}.html`, 'text/html');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+  function renderTrainList(e) {
+    const list = (db.trainings || []).filter(t => t.empId === e.id).sort((a, b) => b.at.localeCompare(a.at));
+    $('edTrain').innerHTML = list.map(t => `<div class="train-row"><span>✅ <b>${esc(monthName(t.month))}</b> · נחתם ${fmtDate(new Date(t.at))} ${fmtTime(new Date(t.at))}</span>
+      <button class="small secondary" data-train="${t.id}">צפייה / הדפסה</button></div>`).join('')
+      || `<p class="muted">${S().trainingOn ? 'העובד עדיין לא עבר הדרכה. ההדרכה תיפתח לו אוטומטית בכניסה הבאה למשמרת.' : 'אין הדרכות חתומות.'}</p>`;
+  }
+  $('edTrain').onclick = e => { const id = e.target.dataset.train; const t = id && db.trainings.find(x => x.id === id); if (t) openTrainingDoc(t); };
+  $('btnTrainPreview').onclick = () => {
+    const keep = S().trainingText; S().trainingText = $('setTrainText').value.trim() || DEFAULT_TRAINING;
+    openTrainingDoc({ empName: '(תצוגה מקדימה)', month: monthKey(new Date()), lines: trainingLines(), store: S().storeName });
+    S().trainingText = keep;
+  };
+  $('btnTrainDefault').onclick = () => { if (confirm('להחזיר את נוסח ההדרכה לברירת המחדל? (צריך ללחוץ "שמירת הגדרות" אחר כך)')) $('setTrainText').value = DEFAULT_TRAINING; };
+
   // ----- employee personal area -----
   let myWeek = null, myDraft = {};
   function openMy(e) {
@@ -1846,6 +2027,7 @@
     $('setAlc').value = s.alcohol.join(', ');
     $('setSmk').value = s.smoking.join(', ');
     $('setRules').value = s.rules.join('\n');
+    $('setTrainOn').checked = !!s.trainingOn; $('setTrainText').value = s.trainingText || DEFAULT_TRAINING;
     $('setEmail').value = s.email; $('setAuto').checked = s.autoSend;
     $('setEjService').value = s.ejService; $('setEjTemplate').value = s.ejTemplate; $('setEjKey').value = s.ejKey;
     $('setPin').value = '';
@@ -1868,6 +2050,7 @@
       autoSend: $('setAuto').checked, ejService: $('setEjService').value.trim(),
       ejTemplate: $('setEjTemplate').value.trim(), ejKey: $('setEjKey').value.trim()
     });
+    S().trainingOn = $('setTrainOn').checked; S().trainingText = $('setTrainText').value.trim() || DEFAULT_TRAINING;
     if (p) S().managerPin = p;
     // Don't auto-send old months right after first enabling – start from the current month
     if (S().autoSend && !S().lastSentMonth) S().lastSentMonth = monthKey(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1));
@@ -1974,7 +2157,7 @@
   };
 
   // ---------- tablet: offline, screen on, keep data ----------
-  const APP_VERSION = '2.3';
+  const APP_VERSION = '2.4';
   $('appVersion').textContent = APP_VERSION;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); // ask the browser not to evict our data
